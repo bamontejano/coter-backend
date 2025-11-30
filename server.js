@@ -1,5 +1,22 @@
 // server.js
 
+// En server.js (o un archivo temporal)
+const prisma = require('./utils/prismaClient'); // Asegúrate de que la ruta sea correcta
+
+async function testDbConnection() {
+    try {
+        await prisma.$connect();
+        console.log('✅ BASE DE DATOS: Conexión a Neon exitosa.');
+    } catch (error) {
+        console.error('❌ BASE DE DATOS: ¡FALLÓ LA CONEXIÓN A NEON!');
+        console.error('Detalles del error:', error.message);
+        // Esto forzará un error visible en los logs si la conexión falla
+        process.exit(1); 
+    }
+}
+
+// Llama a esta función al inicio del servidor
+// testDbConnection();
 // 1. Cargar variables de entorno PRIMERO
 const dotenv = require('dotenv');
 dotenv.config();
