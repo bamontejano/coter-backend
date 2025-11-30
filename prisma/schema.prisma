@@ -1,0 +1,107 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ÚNICO BLOQUE DATASOURCE: Usa la variable de entorno del archivo .env
+datasource db {
+  provider = "postgresql"
+  // ¡Agrega esta línea de nuevo!
+  url      = env("DATABASE_URL") 
+}
+// Enumeración de Roles
+enum Role {
+  PATIENT
+  THERAPIST
+}
+
+// ------------------------------------------------------------------------
+// MODELO USER
+// ------------------------------------------------------------------------
+model User {
+  id                  String     @id @default(cuid())
+  email               String     @unique
+  password            String
+  firstName           String?
+  lastName            String?
+  role                Role       @default(PATIENT)
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+
+  // Relación Terapeuta-Paciente
+  therapistId         String?
+  therapist           User?      @relation("PatientTherapists", fields: [therapistId], references: [id])
+  patients            User[]     @relation("PatientTherapists")
+
+  // Relaciones de Negocio para un Paciente
+  checkIns            CheckIn[]
+  goals               Goal[]     @relation("PatientGoals")
+  assignments         Assignment[] @relation("PatientAssignments")
+
+  // Mensajería
+  sentMessages        Message[]  @relation("SentMessages")
+  receivedMessages    Message[]  @relation("ReceivedMessages")
+}
+
+// ------------------------------------------------------------------------
+// MODELO CHECKIN
+// ------------------------------------------------------------------------
+model CheckIn {
+  id        String    @id @default(cuid())
+  date      DateTime  @default(now())
+  mood      Int // Escala de 1 a 10
+  anxiety   Int // Escala de 1 a 10
+  energy    Int // Escala de 1 a 10
+  thoughts  String?
+
+  patientId String
+  patient   User      @relation(fields: [patientId], references: [id])
+}
+
+// ------------------------------------------------------------------------
+// MODELO GOAL (Meta)
+// ------------------------------------------------------------------------
+model Goal {
+  id        String    @id @default(cuid())
+  title     String
+  metric    String // Ej: 'mood', 'anxiety', 'completion_rate'
+  target    String // El valor objetivo (puede ser un número o texto)
+  dueDate   DateTime?
+  status    String    @default("active") // 'active', 'completed', 'failed'
+  createdAt DateTime  @default(now())
+
+  patientId String
+  patient   User      @relation("PatientGoals", fields: [patientId], references: [id])
+}
+
+// ------------------------------------------------------------------------
+// MODELO ASSIGNMENT (Asignación o Tarea)
+// ------------------------------------------------------------------------
+model Assignment {
+  id          String    @id @default(cuid())
+  title       String
+  description String
+  dueDate     DateTime?
+  status      String    @default("pending") // 'pending', 'completed'
+  createdAt   DateTime  @default(now())
+
+  patientId   String
+  patient     User      @relation("PatientAssignments", fields: [patientId], references: [id])
+}
+
+// ------------------------------------------------------------------------
+// MODELO MESSAGE
+// ------------------------------------------------------------------------
+model Message {
+  id        String    @id @default(cuid())
+  content   String
+  createdAt DateTime  @default(now())
+
+  senderId  String
+  sender    User      @relation("SentMessages", fields: [senderId], references: [id])
+
+  receiverId String
+  receiver  User      @relation("ReceivedMessages", fields: [receiverId], references: [id])
+}

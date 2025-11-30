@@ -1,0 +1,18 @@
+# Archivos/carpetas sensibles y de entorno
+.env 
+.DS_Store
+
+# Logs y módulos
+npm-debug.log*
+node_modules
+
+# Artefactos de Prisma (bases de datos locales y archivos de cliente)
+/prisma/*.db
+/prisma/migrations
+/node_modules/@prisma/client
+
+
+
+
+
+
