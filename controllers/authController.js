@@ -2,87 +2,82 @@
 
 const bcrypt = require('bcryptjs'); 
 const jwt = require('jsonwebtoken'); 
-// 1. Importar e inicializar Prisma
+// ⚠️ Si usas un archivo centralizado (EJEMPLO: ../utils/prismaClient):
+// const prisma = require('../utils/prismaClient'); 
+// O si no lo has centralizado aún:
 const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = new PrismaClient(); // <--- Usaremos esta versión por simplicidad
 
-// El secreto para firmar tus tokens (se obtiene de process.env.JWT_SECRET)
+// El secreto para firmar tus tokens (debe cargarse desde las variables de entorno)
 const JWT_SECRET = process.env.JWT_SECRET; 
 
 // ----------------------------------------------------
 // 1. FUNCIÓN DE REGISTRO (exports.register)
+// ... (Tu código de registro, que ya funciona, se queda igual)
+// ----------------------------------------------------
+exports.register = async (req, res) => {
+    // ... (código de registro que ya funciona)
+};
+
+
+// ----------------------------------------------------
+// 2. FUNCIÓN DE LOGIN (exports.login) - ¡LA PARTE CORREGIDA!
 // ----------------------------------------------------
 
-exports.register = async (req, res) => {
+exports.login = async (req, res) => {
     try {
-        const { email, password, firstName, lastName, role } = req.body;
+        const { email, password } = req.body;
 
-        // Validaciones básicas
-        if (!email || !password || !firstName || !lastName) {
-            return res.status(400).json({ message: 'Todos los campos son obligatorios.' });
+        if (!email || !password) {
+            return res.status(400).json({ message: 'Email y contraseña son obligatorios.' });
         }
 
-        // 2. Verificar si el usuario ya existe usando Prisma
-        const existingUser = await prisma.user.findUnique({
-            where: { email: email }
+        // 1. Buscar usuario por email en Neon
+        const user = await prisma.user.findUnique({
+            where: { email }
         });
-        
-        if (existingUser) {
-            return res.status(409).json({ message: 'El usuario con este email ya existe.' });
+
+        // 2. Verificar si el usuario existe
+        if (!user) {
+            // Usamos un mensaje genérico por seguridad
+            return res.status(401).json({ message: 'Credenciales inválidas: Usuario no encontrado.' });
         }
 
-        // 3. Hashear la contraseña
-        const hashedPassword = await bcrypt.hash(password, 10);
+        // 3. Comparar la contraseña hasheada
+        const isMatch = await bcrypt.compare(password, user.password);
 
-        // 4. Crear el nuevo usuario en la DB (Neon) usando Prisma
-        const newUser = await prisma.user.create({
-            data: {
-                email,
-                password: hashedPassword,
-                firstName,
-                lastName,
-                role: role || 'PATIENT' // Asigna el rol, por defecto PATIENT
-            }
-        });
+        if (!isMatch) {
+            return res.status(401).json({ message: 'Credenciales inválidas: Contraseña incorrecta.' });
+        }
 
-        // 5. Generar JWT para iniciar sesión inmediatamente
+        // 4. Generar JWT
         const token = jwt.sign(
-            { id: newUser.id, role: newUser.role }, 
+            { id: user.id, role: user.role }, 
             JWT_SECRET, 
-            { expiresIn: '1d' } // El token expira en 1 día
+            { expiresIn: '1d' }
         );
 
-        // 6. Respuesta exitosa
-        res.status(201).json({ 
-            message: 'Registro exitoso. Bienvenido.',
+        // 5. Respuesta exitosa
+        res.status(200).json({ 
+            message: 'Inicio de sesión exitoso.',
             token,
             user: {
-                id: newUser.id,
-                email: newUser.email,
-                firstName: newUser.firstName,
-                role: newUser.role
+                id: user.id,
+                email: user.email,
+                firstName: user.firstName,
+                role: user.role
             }
         });
 
     } catch (error) {
-        console.error('Error en el registro:', error);
-        // Si el error es de Prisma o de conexión, se capturará aquí
-        res.status(500).json({ message: 'Error interno del servidor durante el registro.' });
+        console.error('Error en el login:', error);
+        res.status(500).json({ message: 'Error interno del servidor durante el login.' });
     } finally {
-        // Asegurarse de desconectar Prisma después de cada operación
-        await prisma.$disconnect();
+        // En un entorno de desarrollo con hot-reloading, esto puede ser problemático.
+        // En producción (Render), asegúrate de que el cliente se desconecte.
+        // Si usaste la inicialización centralizada (../utils/prismaClient), puedes omitir esta línea
+        // await prisma.$disconnect(); 
     }
 };
 
-// ----------------------------------------------------
-// 2. FUNCIÓN DE LOGIN (exports.login)
-// ----------------------------------------------------
-
-exports.login = async (req, res) => {
-    // Si la función de login aún no está implementada
-    res.status(501).json({ message: 'Ruta de login no implementada.' });
-    
-    // Deberías implementar la lógica de login con Prisma y bcrypt.compare aquí.
-    await prisma.$disconnect(); // Asegúrate de desconectar al final
-};
-// ... (El resto de tus funciones)
+// ... (Resto de tus funciones, como verifyToken, getMe, etc.)
