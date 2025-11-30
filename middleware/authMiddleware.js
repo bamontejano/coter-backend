@@ -1,21 +1,34 @@
-// middleware/authMiddleware.js - TEMPORAL MOCK
+// middleware/authMiddleware.js
 
-// Este middleware de prueba simplemente llama a next() y pasa la petición.
-exports.protect = (req, res, next) => {
-    // Asumimos que el token 'FAKE_TOKEN_FOR_TESTING' es válido después del login de prueba.
-    // Podemos simular que el ID del usuario está en el request para evitar más fallos.
-    req.user = { id: 'THERAPIST_123', role: 'THERAPIST' }; 
-    next(); 
-};
+const jwt = require('jsonwebtoken');
 
-// En tu therapistRoutes.js, asegúrate de importarlo así:
-// const { protect } = require('../middleware/authMiddleware');
-// y usarlo así: router.get('/patients', protect, therapistController.getPatients);
+// El secreto para verificar el token (debe coincidir con el usado en authController.js)
+const JWT_SECRET = process.env.JWT_SECRET; 
 
-// Pero si lo importaste como 'const authMiddleware = require(...)'
-// en therapistRoutes.js, el nombre de la función exportada debe coincidir:
-// Si usas 'authMiddleware' en therapistRoutes.js, define:
+// Middleware para proteger rutas
 module.exports = (req, res, next) => {
-    req.user = { id: 'THERAPIST_123', role: 'THERAPIST' }; 
-    next(); 
+    // 1. Obtener el token de la cabecera Authorization
+    const authHeader = req.header('Authorization');
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ message: 'Acceso denegado. No se proporcionó token.' });
+    }
+
+    // Extraer solo la parte del token
+    const token = authHeader.replace('Bearer ', '');
+
+    try {
+        // 2. Verificar el token usando el secreto
+        const decoded = jwt.verify(token, JWT_SECRET);
+        
+        // 3. Adjuntar la info del usuario al request (esto es lo que usa therapistController)
+        req.user = decoded; 
+        
+        // 4. Continuar con el controlador
+        next();
+
+    } catch (error) {
+        // El token es inválido o ha expirado
+        return res.status(401).json({ message: 'Token inválido o expirado.' });
+    }
 };
