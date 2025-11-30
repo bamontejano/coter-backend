@@ -1,8 +1,23 @@
 // server.js
 
-// En server.js (o un archivo temporal)
-const prisma = require('./utils/prismaClient'); // Asegúrate de que la ruta sea correcta
+// Importación de módulos Node
+const dotenv = require('dotenv');
+dotenv.config(); // 1. Cargar variables de entorno PRIMERO
 
+const express = require('express');
+const cors = require('cors'); 
+const app = express();
+const PORT = process.env.PORT || 5000;
+
+// ⚠️ Importación del cliente de Prisma: Asegúrate de que esta ruta es correcta
+const prisma = require('./utils/prismaClient'); 
+
+// ----------------------------------------------------
+// FUNCIÓN OPCIONAL PARA TESTEAR LA CONEXIÓN A NEON
+// ----------------------------------------------------
+
+// Función para testear la conexión a la DB (descomentar para usar)
+/*
 async function testDbConnection() {
     try {
         await prisma.$connect();
@@ -10,50 +25,48 @@ async function testDbConnection() {
     } catch (error) {
         console.error('❌ BASE DE DATOS: ¡FALLÓ LA CONEXIÓN A NEON!');
         console.error('Detalles del error:', error.message);
-        // Esto forzará un error visible en los logs si la conexión falla
         process.exit(1); 
     }
 }
-
-// Llama a esta función al inicio del servidor
-// testDbConnection();
-// 1. Cargar variables de entorno PRIMERO
-const dotenv = require('dotenv');
-dotenv.config();
-
-const express = require('express');
-const cors = require('cors'); // ✨ Importar el módulo CORS
-const app = express();
-const PORT = process.env.PORT || 5000;
+// testDbConnection(); 
+*/
 
 // ----------------------------------------------------
 // MIDDLEWARES GLOBALES
 // ----------------------------------------------------
 
-// 1. Middleware CORS: Usa el módulo estándar para manejar correctamente OPTIONS
+// 1. Middleware CORS: Necesario para que el frontend (Render) pueda acceder
 app.use(cors({
-    origin: '*', // Permite solicitudes desde cualquier origen (tu HTML local y Render)
+    origin: '*', 
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// 2. Middleware para parsear JSON
+// 2. Middleware para parsear JSON (convierte el body de las peticiones a objetos JS)
 app.use(express.json());
 
 // ----------------------------------------------------
 // CONEXIÓN DE RUTAS
 // ----------------------------------------------------
 
-// Ruta de prueba
+// Importación de archivos de rutas
+const authRoutes = require('./routes/authRoutes');
+const therapistRoutes = require('./routes/therapistRoutes'); // ⬅️ ¡CORREGIDO: Importar router de Terapeuta!
+
+// 1. Ruta de prueba
 app.get('/', (req, res) => {
     res.status(200).send('Servidor Coter Backend funcionando. ¡Conectado!');
 });
 
-// Conectar Rutas (el resto de tus require() y app.use() va aquí...)
-const authRoutes = require('./routes/authRoutes');
+// 2. Rutas de Autenticación
 app.use('/api/auth', authRoutes);
 
-// ... (resto de rutas: therapistRoutes, checkinRoutes, goalRoutes, etc.)
+// 3. Rutas del Terapeuta ⬅️ ¡CORREGIDO: Conectar el router de Terapeuta!
+// Sin esta línea, Express devuelve un 404 a la ruta /api/therapist/patients
+app.use('/api/therapist', therapistRoutes); 
+
+// ... (Aquí irían otras rutas como checkinRoutes, goalRoutes, etc.)
+
 
 // ----------------------------------------------------
 // INICIO DEL SERVIDOR
