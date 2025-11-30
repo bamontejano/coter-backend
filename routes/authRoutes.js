@@ -8,37 +8,34 @@ const router = express.Router();
 // ----------------------------------------------------
 
 // Importamos el controlador que contiene la lógica para las rutas de autenticación
-// NOTA: Asegúrate de que la ruta a tu controlador sea correcta (ej: ../controllers/authController)
-const authController = require('../controllers/authController'); 
+const authController = require('../controllers/authController');
 
-// Importamos un middleware de autenticación (si tienes uno). 
-// Si no tienes este archivo, deberías comentarlo o asegurarte de que exista.
-// const authMiddleware = require('../middleware/authMiddleware'); 
+// Importamos el middleware de autenticación (Necesario para rutas protegidas, si lo tienes)
+const authMiddleware = require('../middleware/authMiddleware'); 
 
 // ----------------------------------------------------
-// DEFINICIÓN DE RUTAS (PRUEBA DE AISLAMIENTO)
+// DEFINICIÓN DE RUTAS (API /api/auth)
 // ----------------------------------------------------
 
 // 1. Ruta de REGISTRO (POST /api/auth/register)
-// /*
-// router.post('/register', authController.register);
-// */
+// ⭐ CORRECCIÓN: Esta línea debe estar activa.
+router.post('/register', authController.register);
 
-// 2. Ruta de LOGIN (POST /api/auth/login) - ¡DEJAMOS ESTA ACTIVA!
-// Esta es la ruta que estamos probando para resolver el error "Failed to fetch".
-router.post('/login', authController.login); 
+
+// 2. Ruta de LOGIN (POST /api/auth/login)
+router.post('/login', authController.login);
 
 
 // 3. Ruta de VERIFICACIÓN de Sesión (GET /api/auth/verify)
-// /*
-// router.get('/verify', authMiddleware, authController.verifyToken);
-// */
+/*
+router.get('/verify', authMiddleware, authController.verifyToken);
+*/
 
 
 // 4. Ruta para obtener un Perfil de Usuario (GET /api/auth/me)
-// /*
-// router.get('/me', authMiddleware, authController.getMe);
-// */
+/*
+router.get('/me', authMiddleware, authController.getMe);
+*/
 
 
 // ----------------------------------------------------
