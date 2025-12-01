@@ -1,83 +1,118 @@
 // controllers/authController.js
 
-const bcrypt = require('bcryptjs'); 
-const jwt = require('jsonwebtoken'); 
-// ⚠️ Si usas un archivo centralizado (EJEMPLO: ../utils/prismaClient):
-// const prisma = require('../utils/prismaClient'); 
-// O si no lo has centralizado aún:
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient(); // <--- Usaremos esta versión por simplicidad
+const prisma = require('../utils/prismaClient'); // Asegúrate de que esta ruta sea correcta
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+require('dotenv').config(); // Para usar process.env.JWT_SECRET
 
-// El secreto para firmar tus tokens (debe cargarse desde las variables de entorno)
-const JWT_SECRET = process.env.JWT_SECRET; 
-
-// ----------------------------------------------------
-// 1. FUNCIÓN DE REGISTRO (exports.register)
-// ... (Tu código de registro, que ya funciona, se queda igual)
-// ----------------------------------------------------
-exports.register = async (req, res) => {
-    // ... (código de registro que ya funciona)
+// Función auxiliar para generar el token JWT
+const generateToken = (userId, userRole) => {
+    return jwt.sign(
+        { id: userId, role: userRole },
+        process.env.JWT_SECRET, // Asegúrate de definir esta variable en tu .env
+        { expiresIn: '1d' }
+    );
 };
 
-
 // ----------------------------------------------------
-// 2. FUNCIÓN DE LOGIN (exports.login) - ¡LA PARTE CORREGIDA!
+// 1. REGISTRO DE USUARIO (POST /api/auth/register)
 // ----------------------------------------------------
+exports.register = async (req, res) => {
+    const { email, password, firstName, role } = req.body;
 
-exports.login = async (req, res) => {
+    if (!email || !password || !firstName || !role) {
+        return res.status(400).json({ message: 'Faltan campos obligatorios para el registro.' });
+    }
+
     try {
-        const { email, password } = req.body;
-
-        if (!email || !password) {
-            return res.status(400).json({ message: 'Email y contraseña son obligatorios.' });
+        // 1. Verificar si el usuario ya existe
+        const existingUser = await prisma.user.findUnique({ where: { email } });
+        if (existingUser) {
+            return res.status(400).json({ message: 'El correo electrónico ya está en uso.' });
         }
 
-        // 1. Buscar usuario por email en Neon
-        const user = await prisma.user.findUnique({
-            where: { email }
+        // 2. Hashear la contraseña
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+
+        // 3. Crear el usuario en la base de datos
+        const newUser = await prisma.user.create({
+            data: {
+                email,
+                password: hashedPassword,
+                firstName,
+                role
+            },
+            // Selecciona solo los campos seguros y necesarios para la respuesta
+            select: {
+                id: true,
+                email: true,
+                firstName: true,
+                role: true,
+                therapistId: true // Importante para el paciente
+            }
         });
 
-        // 2. Verificar si el usuario existe
+        // 4. Generar el token JWT
+        const token = generateToken(newUser.id, newUser.role);
+
+        // 5. Devolver 201 Created con el token y los datos (LA CORRECCIÓN CLAVE)
+        res.status(201).json({
+            message: 'Usuario registrado exitosamente',
+            token,
+            user: newUser
+        });
+
+    } catch (error) {
+        console.error('Error en el registro:', error.message);
+        res.status(500).json({ message: 'Error interno del servidor durante el registro.' });
+    }
+};
+
+// ----------------------------------------------------
+// 2. INICIO DE SESIÓN (POST /api/auth/login)
+// ----------------------------------------------------
+exports.login = async (req, res) => {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+        return res.status(400).json({ message: 'Se requieren correo y contraseña.' });
+    }
+
+    try {
+        // 1. Buscar usuario
+        const user = await prisma.user.findUnique({ where: { email } });
+
         if (!user) {
-            // Usamos un mensaje genérico por seguridad
-            return res.status(401).json({ message: 'Credenciales inválidas: Usuario no encontrado.' });
+            return res.status(401).json({ message: 'Credenciales inválidas.' });
         }
 
-        // 3. Comparar la contraseña hasheada
+        // 2. Comparar contraseña
         const isMatch = await bcrypt.compare(password, user.password);
 
         if (!isMatch) {
-            return res.status(401).json({ message: 'Credenciales inválidas: Contraseña incorrecta.' });
+            return res.status(401).json({ message: 'Credenciales inválidas.' });
         }
 
-        // 4. Generar JWT
-        const token = jwt.sign(
-            { id: user.id, role: user.role }, 
-            JWT_SECRET, 
-            { expiresIn: '1d' }
-        );
+        // 3. Generar token
+        const token = generateToken(user.id, user.role);
 
-        // 5. Respuesta exitosa
-        res.status(200).json({ 
-            message: 'Inicio de sesión exitoso.',
+        // 4. Devolver 200 OK con el token y los datos
+        // NOTA: No devolvemos el hash de la contraseña (user.password)
+        res.status(200).json({
+            message: 'Inicio de sesión exitoso',
             token,
             user: {
                 id: user.id,
                 email: user.email,
                 firstName: user.firstName,
-                role: user.role
+                role: user.role,
+                therapistId: user.therapistId
             }
         });
 
     } catch (error) {
-        console.error('Error en el login:', error);
-        res.status(500).json({ message: 'Error interno del servidor durante el login.' });
-    } finally {
-        // En un entorno de desarrollo con hot-reloading, esto puede ser problemático.
-        // En producción (Render), asegúrate de que el cliente se desconecte.
-        // Si usaste la inicialización centralizada (../utils/prismaClient), puedes omitir esta línea
-        // await prisma.$disconnect(); 
+        console.error('Error en el inicio de sesión:', error.message);
+        res.status(500).json({ message: 'Error interno del servidor durante el inicio de sesión.' });
     }
 };
-
-// ... (Resto de tus funciones, como verifyToken, getMe, etc.)
