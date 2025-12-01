@@ -65,6 +65,9 @@ app.use('/api/auth', authRoutes);
 // Sin esta línea, Express devuelve un 404 a la ruta /api/therapist/patients
 app.use('/api/therapist', therapistRoutes); 
 
+const patientRoutes = require('./routes/patientRoutes'); // ⬅️ Nuevo require
+app.use('/api/patient', patientRoutes); // ⬅️ Conectar el nuevo router
+
 // ... (Aquí irían otras rutas como checkinRoutes, goalRoutes, etc.)
 
 
