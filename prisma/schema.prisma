@@ -5,12 +5,11 @@ generator client {
   provider = "prisma-client-js"
 }
 
-// ÚNICO BLOQUE DATASOURCE: Usa la variable de entorno del archivo .env
 datasource db {
   provider = "postgresql"
-  // ¡Agrega esta línea de nuevo!
   url      = env("DATABASE_URL") 
 }
+
 // Enumeración de Roles
 enum Role {
   PATIENT
@@ -18,7 +17,7 @@ enum Role {
 }
 
 // ------------------------------------------------------------------------
-// MODELO USER
+// MODELO USER (CORREGIDO)
 // ------------------------------------------------------------------------
 model User {
   id                  String     @id @default(cuid())
@@ -30,15 +29,18 @@ model User {
   createdAt           DateTime   @default(now())
   updatedAt           DateTime   @updatedAt
 
-  // Relación Terapeuta-Paciente
-  therapistId         String?
-  therapist           User?      @relation("PatientTherapists", fields: [therapistId], references: [id])
-  patients            User[]     @relation("PatientTherapists")
+  // Relación Terapeuta-Paciente (CORREGIDO: "TherapistPatients" para claridad)
+  therapistId         String? // El ID del terapeuta (si el usuario es un paciente)
+  therapist           User?      @relation("TherapistPatients", fields: [therapistId], references: [id])
+  patients            User[]     @relation("TherapistPatients") // Lista de pacientes (si el usuario es un terapeuta)
 
   // Relaciones de Negocio para un Paciente
   checkIns            CheckIn[]
-  goals               Goal[]     @relation("PatientGoals")
+  goals               Goal[]     @relation("PatientGoals") // Objetivos asignados al paciente
   assignments         Assignment[] @relation("PatientAssignments")
+
+  // Relaciones de Negocio para un Terapeuta (NUEVO: Para rastrear qué objetivos creó)
+  goalsCreated        Goal[]     @relation("GoalsCreatedByTherapist")
 
   // Mensajería
   sentMessages        Message[]  @relation("SentMessages")
@@ -46,45 +48,50 @@ model User {
 }
 
 // ------------------------------------------------------------------------
-// MODELO CHECKIN
+// MODELO CHECKIN (Sin cambios necesarios)
 // ------------------------------------------------------------------------
 model CheckIn {
   id        String    @id @default(cuid())
   date      DateTime  @default(now())
-  mood      Int // Escala de 1 a 10
-  anxiety   Int // Escala de 1 a 10
-  energy    Int // Escala de 1 a 10
+  mood      Int 
+  anxiety   Int 
+  energy    Int 
   thoughts  String?
-
+  
   patientId String
   patient   User      @relation(fields: [patientId], references: [id])
 }
 
 // ------------------------------------------------------------------------
-// MODELO GOAL (Meta)
+// MODELO GOAL (Meta) (CORREGIDO)
 // ------------------------------------------------------------------------
 model Goal {
   id        String    @id @default(cuid())
   title     String
-  metric    String // Ej: 'mood', 'anxiety', 'completion_rate'
-  target    String // El valor objetivo (puede ser un número o texto)
+  metric    String 
+  target    String 
   dueDate   DateTime?
-  status    String    @default("active") // 'active', 'completed', 'failed'
+  status    String    @default("active")
   createdAt DateTime  @default(now())
 
+  // Relaciones con el Paciente (sin cambios)
   patientId String
   patient   User      @relation("PatientGoals", fields: [patientId], references: [id])
+  
+  // Relación con el Terapeuta (NUEVO: Necesario para el controlador)
+  therapistId String
+  therapist   User      @relation("GoalsCreatedByTherapist", fields: [therapistId], references: [id])
 }
 
 // ------------------------------------------------------------------------
-// MODELO ASSIGNMENT (Asignación o Tarea)
+// MODELO ASSIGNMENT (Asignación o Tarea) (Sin cambios necesarios)
 // ------------------------------------------------------------------------
 model Assignment {
   id          String    @id @default(cuid())
   title       String
   description String
   dueDate     DateTime?
-  status      String    @default("pending") // 'pending', 'completed'
+  status      String    @default("pending")
   createdAt   DateTime  @default(now())
 
   patientId   String
@@ -92,7 +99,7 @@ model Assignment {
 }
 
 // ------------------------------------------------------------------------
-// MODELO MESSAGE
+// MODELO MESSAGE (Sin cambios necesarios)
 // ------------------------------------------------------------------------
 model Message {
   id        String    @id @default(cuid())
