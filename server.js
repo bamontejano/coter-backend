@@ -7,6 +7,11 @@ dotenv.config(); // 1. Cargar variables de entorno PRIMERO
 const express = require('express');
 const cors = require('cors'); 
 const app = express();
+
+// 🛠️ CORRECCIÓN CLAVE para entornos de producción (como Render) 
+// Esto es necesario para que Express confíe en el proxy y maneje correctamente HTTPS.
+app.set('trust proxy', 1); 
+
 const PORT = process.env.PORT || 5000;
 
 // ⚠️ Importación del cliente de Prisma: Asegúrate de que esta ruta es correcta
@@ -16,8 +21,8 @@ const prisma = require('./utils/prismaClient');
 // FUNCIÓN OPCIONAL PARA TESTEAR LA CONEXIÓN A NEON
 // ----------------------------------------------------
 
-// Función para testear la conexión a la DB (descomentar para usar)
 /*
+// Función para testear la conexión a la DB (descomentar para usar)
 async function testDbConnection() {
     try {
         await prisma.$connect();
@@ -35,7 +40,7 @@ async function testDbConnection() {
 // MIDDLEWARES GLOBALES
 // ----------------------------------------------------
 
-// 1. Middleware CORS: Necesario para que el frontend (Render) pueda acceder
+// 1. Middleware CORS: Necesario para que el frontend (GitHub Pages) pueda acceder
 app.use(cors({
     origin: '*', 
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -51,7 +56,8 @@ app.use(express.json());
 
 // Importación de archivos de rutas
 const authRoutes = require('./routes/authRoutes');
-const therapistRoutes = require('./routes/therapistRoutes'); // ⬅️ ¡CORREGIDO: Importar router de Terapeuta!
+const therapistRoutes = require('./routes/therapistRoutes');
+const patientRoutes = require('./routes/patientRoutes'); 
 
 // 1. Ruta de prueba
 app.get('/', (req, res) => {
@@ -61,22 +67,16 @@ app.get('/', (req, res) => {
 // 2. Rutas de Autenticación
 app.use('/api/auth', authRoutes);
 
-// 3. Rutas del Terapeuta ⬅️ ¡CORREGIDO: Conectar el router de Terapeuta!
-// Sin esta línea, Express devuelve un 404 a la ruta /api/therapist/patients
+// 3. Rutas del Terapeuta
 app.use('/api/therapist', therapistRoutes); 
 
-const patientRoutes = require('./routes/patientRoutes'); // ⬅️ Nuevo require
-app.use('/api/patient', patientRoutes); // ⬅️ Conectar el nuevo router
-
-// ... (Aquí irían otras rutas como checkinRoutes, goalRoutes, etc.)
+// 4. Rutas del Paciente
+app.use('/api/patient', patientRoutes); 
 
 
 // ----------------------------------------------------
 // INICIO DEL SERVIDOR
 // ----------------------------------------------------
-
-// Iniciar el servidor
 app.listen(PORT, () => {
-    console.log(`🚀 Servidor Express iniciado en el puerto ${PORT}`);
-    console.log(`URL: http://localhost:${PORT}`);
+    console.log(`✅ Servidor Express iniciado en el puerto ${PORT}`);
 });
