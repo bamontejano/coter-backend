@@ -3,6 +3,7 @@
 const prisma = require('../utils/prismaClient'); 
 const { Role } = require('@prisma/client'); 
 
+// Función de utilidad para obtener el ID del usuario del token
 const getUserId = (req) => req.user.id || req.user.userId;
 
 // ----------------------------------------------------------------------
@@ -86,12 +87,11 @@ exports.assignPatient = async (req, res) => {
 
 
 // ----------------------------------------------------------------------
-// 3. CREAR OBJETIVO (POST /api/therapist/goals) - ¡CORREGIDO!
+// 3. CREAR OBJETIVO (POST /api/therapist/goals)
 // ----------------------------------------------------------------------
 
 exports.createGoal = async (req, res) => {
     const therapistId = getUserId(req);
-    // ⚠️ CRÍTICO: Incluir 'target' y 'metric' en la desestructuración
     const { patientId, title, description, dueDate, metric, target } = req.body; 
 
     if (!patientId || !title || !dueDate) {
@@ -114,7 +114,7 @@ exports.createGoal = async (req, res) => {
                 title: title,
                 description: description || null,
                 metric: metric || null, 
-                target: target || null, // ⚠️ CRÍTICO: Campo 'target' usado aquí
+                target: target || null, 
                 dueDate: new Date(dueDate), 
                 status: 'PENDING' 
             }
@@ -135,7 +135,7 @@ exports.createGoal = async (req, res) => {
 };
 
 // ----------------------------------------------------------------------
-// 4. OBTENER OBJETIVOS DEL PACIENTE (GET /api/therapist/goals/:patientId) - ¡CORREGIDO!
+// 4. OBTENER OBJETIVOS DEL PACIENTE (GET /api/therapist/goals/:patientId)
 // ----------------------------------------------------------------------
 
 exports.getPatientGoals = async (req, res) => {
@@ -153,7 +153,6 @@ exports.getPatientGoals = async (req, res) => {
 
         const goals = await prisma.goal.findMany({
             where: { patientId: patientId },
-            // La sintaxis de orderBy ya está corregida a array de objetos
             orderBy: [
                 { dueDate: 'asc' }, 
                 { createdAt: 'desc' }
@@ -171,10 +170,58 @@ exports.getPatientGoals = async (req, res) => {
     }
 };
 
+
 // ----------------------------------------------------------------------
-// 5. OBTENER PERFIL DE UN PACIENTE ESPECÍFICO (GET /api/therapist/patient/:patientId) - PENDIENTE
+// 5. OBTENER PERFIL COMPLETO DE UN PACIENTE ESPECÍFICO (GET /api/therapist/patient/:patientId)
 // ----------------------------------------------------------------------
 
-exports.getPatientProfile = (req, res) => {
-    res.status(501).json({ message: 'Ruta PENDIENTE: Obtener Perfil del Paciente.' });
+exports.getPatientProfile = async (req, res) => {
+    const therapistId = getUserId(req);
+    const patientId = req.params.patientId;
+
+    try {
+        const patient = await prisma.user.findUnique({
+            where: { id: patientId, therapistId: therapistId },
+            select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                createdAt: true,
+                // Incluir Check-ins ordenados por fecha descendente
+                checkins: {
+                    orderBy: {
+                        date: 'desc' 
+                    },
+                    select: {
+                        id: true,
+                        moodScore: true,
+                        notes: true,
+                        date: true,
+                        createdAt: true
+                    }
+                },
+                // Incluir Metas ordenadas por fecha límite
+                assignedGoals: {
+                    orderBy: [
+                        { dueDate: 'asc' }, 
+                        { createdAt: 'desc' }
+                    ]
+                }
+            }
+        });
+
+        if (!patient) {
+            return res.status(404).json({ message: 'Paciente no encontrado o no asignado a este terapeuta.' });
+        }
+
+        res.status(200).json(patient);
+
+    } catch (error) {
+        console.error("Error al obtener perfil del paciente:", error.message);
+        res.status(500).json({ 
+            message: 'Error interno al obtener el perfil del paciente.',
+            details: error.message
+        });
+    }
 };
