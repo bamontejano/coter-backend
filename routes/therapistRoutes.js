@@ -3,26 +3,30 @@
 const express = require('express');
 const router = express.Router();
 const therapistController = require('../controllers/therapistController');
-const authMiddleware = require('../middleware/authMiddleware'); 
+// ⚠️ CORRECCIÓN: Importar las dos funciones protect y restrictTo
+const { protect, restrictTo } = require('../middleware/auth'); 
 
 // ----------------------------------------------------
 // RUTAS DE ACCESO AL TERAPEUTA (Prefijo: /api/therapist)
 // ----------------------------------------------------
 
-// 1. OBTENER PACIENTES ASIGNADOS (Ya funcionando con lógica real)
-router.get('/patients', authMiddleware, therapistController.getPatients); 
+// ⚠️ CRÍTICO: Aplicar ambos middlewares a todas las rutas de terapeuta
+router.use(protect, restrictTo('THERAPIST'));
 
-// 2. ASIGNAR UN NUEVO PACIENTE (PATCH para modificar el campo therapistId del paciente)
-router.patch('/assign', authMiddleware, therapistController.assignPatient); // Cambiado a PATCH
+// 1. OBTENER PACIENTES ASIGNADOS 
+router.get('/patients', therapistController.getPatients); 
+
+// 2. ASIGNAR UN NUEVO PACIENTE 
+router.patch('/assign', therapistController.assignPatient);
 
 // 3. OBTENER PERFIL DE UN PACIENTE ESPECÍFICO
-router.get('/patient/:patientId', authMiddleware, therapistController.getPatientProfile); 
+router.get('/patient/:patientId', therapistController.getPatientProfile); 
 
 // 4. CREAR UN NUEVO OBJETIVO PARA UN PACIENTE
-router.post('/goals', authMiddleware, therapistController.createGoal); 
+router.post('/goals', therapistController.createGoal); 
 
 // 5. OBTENER TODOS LOS OBJETIVOS DE UN PACIENTE
-router.get('/goals/:patientId', authMiddleware, therapistController.getPatientGoals);
+router.get('/goals/:patientId', therapistController.getPatientGoals);
 
 // ----------------------------------------------------
 
