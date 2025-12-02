@@ -2,33 +2,32 @@
 
 const express = require('express');
 const router = express.Router();
-
-// Importación del controlador y el middleware
-const patientController = require('../controllers/patientController');
-const authMiddleware = require('../middleware/authMiddleware');
+// ⚠️ Asegúrate de que este archivo existe y tiene las funciones exportadas
+const patientController = require('../controllers/patientController'); 
+// ✅ CORRECCIÓN: Importación del middleware con el nombre de archivo correcto
+const { protect, restrictTo } = require('../middleware/auth');
 
 // ----------------------------------------------------
-// RUTAS PROTEGIDAS POR AUTH MIDDLEWARE (Prefijo: /api/patient)
+// RUTAS DE ACCESO AL PACIENTE (Prefijo: /api/patient)
 // ----------------------------------------------------
 
-// 1. OBTENER PERFIL PROPIO
-router.get('/me', authMiddleware, patientController.getPatientProfile);
+// 🛡️ SEGURIDAD: Aplicar autenticación y restricción de rol a TODAS las rutas de este router
+router.use(protect, restrictTo('PATIENT'));
 
-// 2. OBJETIVOS
-router.get('/goals', authMiddleware, patientController.getGoals);
-// Para actualizar el estado de un objetivo
-router.patch('/goals/:goalId', authMiddleware, patientController.updateGoalStatus);
+// 1. OBTENER PERFIL DEL PACIENTE (Dashboard)
+// Esta función debe obtener los detalles del paciente logueado (incluyendo therapistId)
+router.get('/profile', patientController.getProfile); 
 
-// 3. REGISTRAR UN CHECK-IN DE ESTADO
-router.post('/checkin', authMiddleware, patientController.createCheckIn);
+// 2. OBTENER METAS ASIGNADAS
+router.get('/goals', patientController.getGoals); 
 
-// 4. TAREAS (ASIGNACIONES)
-router.get('/assignments', authMiddleware, patientController.getAssignments);
-// Para actualizar el estado de una tarea (e.g., a "completed")
-router.patch('/assignments/:assignmentId', authMiddleware, patientController.updateAssignmentStatus);
+// 3. ENVIAR UN CHECK-IN DIARIO
+// La función del controlador debe crear un registro de check-in en la DB
+router.post('/checkin', patientController.submitCheckin);
 
-// 5. MENSAJERÍA
-router.get('/messages', authMiddleware, patientController.getMessages);
-router.post('/messages', authMiddleware, patientController.sendMessage);
+// 4. OBTENER TAREAS ASIGNADAS (assignments)
+router.get('/assignments', patientController.getAssignments); 
+
+// ----------------------------------------------------
 
 module.exports = router;

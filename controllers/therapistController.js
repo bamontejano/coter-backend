@@ -7,12 +7,11 @@ const prisma = require('../utils/prismaClient');
 // ----------------------------------------------------------------------
 
 exports.getPatients = async (req, res) => {
-    // 💡 SOLUCIÓN DEFENSIVA: Extraer ID de la propiedad que exista (id o userId)
+    // SOLUCIÓN DEFENSIVA: Extraer ID de la propiedad que exista (id o userId)
     const therapistId = req.user.id || req.user.userId;
     
     try {
         if (!therapistId) {
-            // Este es el mensaje de error que estamos intentando evitar
             return res.status(401).json({ message: "ID de terapeuta no disponible. Acceso no autorizado." });
         }
 
@@ -26,7 +25,6 @@ exports.getPatients = async (req, res) => {
                 firstName: true,
                 lastName: true,
                 email: true,
-                // Añade aquí cualquier otro campo que el dashboard necesite
             }
         });
 
@@ -46,7 +44,6 @@ exports.getPatients = async (req, res) => {
 // ----------------------------------------------------------------------
 
 exports.assignPatient = async (req, res) => {
-    // 💡 SOLUCIÓN DEFENSIVA
     const therapistId = req.user.id || req.user.userId; 
     const { patientEmail } = req.body; 
 
@@ -86,7 +83,6 @@ exports.assignPatient = async (req, res) => {
 // ----------------------------------------------------------------------
 
 exports.getPatientProfile = async (req, res) => {
-    // 💡 SOLUCIÓN DEFENSIVA
     const therapistId = req.user.id || req.user.userId;
     const patientId = req.params.patientId;
 
@@ -98,7 +94,7 @@ exports.getPatientProfile = async (req, res) => {
                 firstName: true,
                 lastName: true,
                 email: true,
-                therapistId: true, // Campo crucial para la verificación
+                therapistId: true, 
             }
         });
 
@@ -106,7 +102,7 @@ exports.getPatientProfile = async (req, res) => {
             return res.status(404).json({ message: 'Paciente no encontrado.' });
         }
 
-        // Verificación de Autorización: Solo el terapeuta asignado puede ver el perfil.
+        // Verificación de Autorización
         if (patient.therapistId !== therapistId) {
             return res.status(403).json({ message: 'Acceso denegado: El paciente no está asignado a usted.' });
         }
@@ -124,7 +120,6 @@ exports.getPatientProfile = async (req, res) => {
 // ----------------------------------------------------------------------
 
 exports.createGoal = async (req, res) => {
-    // 💡 SOLUCIÓN DEFENSIVA
     const therapistId = req.user.id || req.user.userId;
     const { patientId, title, description, dueDate } = req.body; 
 
@@ -133,7 +128,7 @@ exports.createGoal = async (req, res) => {
     }
 
     try {
-        // 1. Verificación de propiedad (Asegurar que el paciente está asignado a este terapeuta)
+        // 1. Verificación de propiedad
         const patient = await prisma.user.findUnique({
             where: { id: patientId, therapistId: therapistId }
         });
@@ -149,8 +144,8 @@ exports.createGoal = async (req, res) => {
                 therapistId: therapistId,
                 title: title,
                 description: description || null,
-                dueDate: new Date(dueDate), // Convertir la fecha a objeto Date
-                status: 'PENDING' // Estado inicial
+                dueDate: new Date(dueDate),
+                status: 'PENDING' 
             }
         });
 
@@ -170,12 +165,11 @@ exports.createGoal = async (req, res) => {
 // ----------------------------------------------------------------------
 
 exports.getPatientGoals = async (req, res) => {
-    // 💡 SOLUCIÓN DEFENSIVA
     const therapistId = req.user.id || req.user.userId;
     const patientId = req.params.patientId;
 
     try {
-        // 1. Verificación de propiedad (Verificar que el paciente está asignado al terapeuta)
+        // 1. Verificación de propiedad
         const patient = await prisma.user.findUnique({
             where: { id: patientId, therapistId: therapistId }
         });
