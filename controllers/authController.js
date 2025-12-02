@@ -1,126 +1,117 @@
-// authController.js
+// controllers/authController.js
 
-const bcrypt = require('bcrypt');
+// ⚠️ CORRECCIÓN CRÍTICA: Cambiado de 'bcrypt' a 'bcryptjs'
+const bcrypt = require('bcryptjs'); 
 const jwt = require('jsonwebtoken');
-
-// 🚨 IMPORTANTE: Ajusta la ruta a tu cliente de Prisma
 const prisma = require('../utils/prismaClient'); 
+const { Role } = require('@prisma/client'); // Importamos el Enum Role
 
-// ----------------------------------------------------
-// REGISTRO DE USUARIO (PACIENTE O TERAPEUTA)
-// RUTA: /api/auth/register
-// ----------------------------------------------------
+// El secreto usado para firmar y verificar los tokens (debe estar en tu .env)
+const JWT_SECRET = process.env.JWT_SECRET; 
+const JWT_EXPIRES_IN = '1d'; // Token expira en 1 día
+
+// ----------------------------------------------------------------------
+// 1. REGISTRO DE NUEVO USUARIO (POST /api/auth/register)
+// ----------------------------------------------------------------------
+
 exports.register = async (req, res) => {
+    const { email, password, role, firstName, lastName } = req.body;
+
+    if (!email || !password || !role) {
+        return res.status(400).json({ message: 'Faltan campos obligatorios: email, password y rol.' });
+    }
+    
+    // Aseguramos que el rol sea uno de los válidos
+    if (!Object.values(Role).includes(role)) {
+        return res.status(400).json({ message: 'Rol inválido.' });
+    }
+
     try {
-        const { email, password, firstName, role } = req.body;
+        // 1. Encriptar la contraseña
+        // Usamos saltRounds = 10 (estándar seguro)
+        const hashedPassword = await bcrypt.hash(password, 10);
 
-        // 1. Validación de campos obligatorios
-        if (!email || !password || !firstName || !role) {
-            return res.status(400).json({ message: 'Todos los campos (email, contraseña, nombre y rol) son obligatorios.' });
-        }
-        
-        // 2. Comprobar si el usuario ya existe
-        const existingUser = await prisma.user.findUnique({ where: { email } });
-        if (existingUser) {
-            return res.status(409).json({ message: 'El correo electrónico ya está registrado.' });
-        }
-
-        // 3. Hashing de la contraseña
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(password, salt);
-
-        // 4. Creación del usuario en la base de datos
-        const newUser = await prisma.user.create({
+        // 2. Crear el usuario en la base de datos
+        const user = await prisma.user.create({
             data: {
                 email,
                 password: hashedPassword,
-                firstName,
-                // CRÍTICO: El 'role' debe coincidir con el ENUM de Prisma (PATIENT/THERAPIST)
-                role: role, 
-                // therapistId se mantiene como null a menos que lo asignes explícitamente aquí
-            },
-            select: {
-                id: true,
-                email: true,
-                firstName: true,
-                role: true,
-                therapistId: true,
+                role: role,
+                firstName: firstName || null,
+                lastName: lastName || null,
             }
         });
-        
-        // 5. Generación del Token JWT
+
+        // 3. Generar token
         const token = jwt.sign(
-            { userId: newUser.id, role: newUser.role },
-            process.env.JWT_SECRET || 'mi_secreto_seguro', // 🚨 Usar variable de entorno real
-            { expiresIn: process.env.JWT_LIFETIME || '1d' }
+            { userId: user.id, role: user.role }, 
+            JWT_SECRET, 
+            { expiresIn: JWT_EXPIRES_IN }
         );
 
-        // 6. Respuesta exitosa
         res.status(201).json({ 
             token, 
-            user: {
-                id: newUser.id,
-                firstName: newUser.firstName,
-                role: newUser.role,
-                therapistId: newUser.therapistId
-            }
+            user: { 
+                id: user.id, 
+                email: user.email, 
+                role: user.role 
+            } 
         });
 
     } catch (error) {
-        // 7. Manejo y log de errores
-        console.error("❌ Error en el registro de usuario:", error);
-        
-        // El error 500 aparecerá ahora en los logs de Render
-        res.status(500).json({ message: 'Error interno del servidor. No se pudo completar el registro.' });
+        // Manejar el error de email duplicado de Prisma
+        if (error.code === 'P2002') {
+            return res.status(409).json({ message: 'Este email ya está registrado.' });
+        }
+        console.error("Error en registro:", error.message);
+        res.status(500).json({ message: 'Error interno del servidor durante el registro.' });
     }
 };
 
-// ----------------------------------------------------
-// INICIO DE SESIÓN DE USUARIO
-// RUTA: /api/auth/login
-// ----------------------------------------------------
+// ----------------------------------------------------------------------
+// 2. INICIO DE SESIÓN (POST /api/auth/login)
+// ----------------------------------------------------------------------
+
 exports.login = async (req, res) => {
+    const { email, password } = req.body;
+
     try {
-        const { email, password } = req.body;
+        // 1. Buscar al usuario
+        const user = await prisma.user.findUnique({
+            where: { email }
+        });
 
-        // 1. Validación de campos
-        if (!email || !password) {
-            return res.status(400).json({ message: 'Por favor, proporciona email y contraseña.' });
-        }
-
-        // 2. Buscar usuario
-        const user = await prisma.user.findUnique({ where: { email } });
         if (!user) {
             return res.status(401).json({ message: 'Credenciales inválidas.' });
         }
 
-        // 3. Comparar contraseña
-        const isPasswordValid = await bcrypt.compare(password, user.password);
-        if (!isPasswordValid) {
+        // 2. Comparar la contraseña
+        const isMatch = await bcrypt.compare(password, user.password);
+
+        if (!isMatch) {
             return res.status(401).json({ message: 'Credenciales inválidas.' });
         }
 
-        // 4. Generación del Token JWT
+        // 3. Generar token
         const token = jwt.sign(
-            { userId: user.id, role: user.role },
-            process.env.JWT_SECRET || 'mi_secreto_seguro', // 🚨 Usar variable de entorno real
-            { expiresIn: process.env.JWT_LIFETIME || '1d' }
+            { userId: user.id, role: user.role, id: user.id }, // ID duplicado para compatibilidad
+            JWT_SECRET, 
+            { expiresIn: JWT_EXPIRES_IN }
         );
 
-        // 5. Respuesta exitosa
-        res.status(200).json({
-            token,
-            user: {
-                id: user.id,
-                firstName: user.firstName,
+        res.status(200).json({ 
+            token, 
+            user: { 
+                id: user.id, 
+                email: user.email, 
                 role: user.role,
-                therapistId: user.therapistId,
-            }
+                firstName: user.firstName,
+                lastName: user.lastName
+            } 
         });
 
     } catch (error) {
-        // 6. Manejo y log de errores
-        console.error("❌ Error en el inicio de sesión:", error);
-        res.status(500).json({ message: 'Error interno del servidor. No se pudo iniciar sesión.' });
+        console.error("Error en login:", error.message);
+        res.status(500).json({ message: 'Error interno del servidor durante el inicio de sesión.' });
     }
 };
