@@ -7,108 +7,95 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  // Asegúrate de que esta URL apunta a tu base de datos Neon
   url      = env("DATABASE_URL") 
 }
 
-// Enumeración de Roles
+// ----------------------------------------------------
+// ENUMS
+// ----------------------------------------------------
+
 enum Role {
-  PATIENT
   THERAPIST
+  PATIENT
+  ADMIN
 }
 
-// ------------------------------------------------------------------------
-// MODELO USER (CORREGIDO)
-// ------------------------------------------------------------------------
+enum GoalStatus {
+  PENDING      // Pendiente de iniciar
+  IN_PROGRESS  // En curso
+  COMPLETED    // Completada
+  ARCHIVED     // Archivado/Cancelada
+}
+
+// ----------------------------------------------------
+// MODELO USER (CONSOLIDADO)
+// ----------------------------------------------------
+
 model User {
-  id                  String     @id @default(cuid())
-  email               String     @unique
-  password            String
-  firstName           String?
-  lastName            String?
-  role                Role       @default(PATIENT)
-  createdAt           DateTime   @default(now())
-  updatedAt           DateTime   @updatedAt
+  id           String    @id @default(uuid())
+  email        String    @unique
+  password     String
+  role         Role
+  firstName    String?
+  lastName     String?
 
-  // Relación Terapeuta-Paciente (CORREGIDO: "TherapistPatients" para claridad)
-  therapistId         String? // El ID del terapeuta (si el usuario es un paciente)
-  therapist           User?      @relation("TherapistPatients", fields: [therapistId], references: [id])
-  patients            User[]     @relation("TherapistPatients") // Lista de pacientes (si el usuario es un terapeuta)
+  // Relación con Terapeuta (si el usuario es un paciente)
+  therapistId  String?
+  // Relación uno a muchos (un terapeuta tiene muchos pacientes)
+  therapist    User?     @relation("TherapistPatients", fields: [therapistId], references: [id], onDelete: SetNull)
 
-  // Relaciones de Negocio para un Paciente
-  checkIns            CheckIn[]
-  goals               Goal[]     @relation("PatientGoals") // Objetivos asignados al paciente
-  assignments         Assignment[] @relation("PatientAssignments")
+  // Relación con Pacientes (si el usuario es un terapeuta)
+  patients     User[]    @relation("TherapistPatients")
 
-  // Relaciones de Negocio para un Terapeuta (NUEVO: Para rastrear qué objetivos creó)
-  goalsCreated        Goal[]     @relation("GoalsCreatedByTherapist")
-
-  // Mensajería
-  sentMessages        Message[]  @relation("SentMessages")
-  receivedMessages    Message[]  @relation("ReceivedMessages")
+  // Metas
+  assignedGoals Goal[] @relation("PatientGoals")    // Metas asignadas A este usuario (paciente)
+  createdGoals  Goal[] @relation("TherapistGoals")   // Metas creadas POR este usuario (terapeuta)
+  
+  // Check-ins
+  checkins      Checkin[]
+  
+  // Timestamps
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
-// ------------------------------------------------------------------------
-// MODELO CHECKIN (Sin cambios necesarios)
-// ------------------------------------------------------------------------
-model CheckIn {
-  id        String    @id @default(cuid())
+
+// ----------------------------------------------------
+// MODELO GOAL (META)
+// ----------------------------------------------------
+model Goal {
+  id          String     @id @default(uuid())
+  title       String
+  description String?    // Opcional
+  dueDate     DateTime   // Fecha límite
+  status      GoalStatus @default(PENDING)
+
+  // Relaciones con User
+  patientId   String
+  patient     User       @relation("PatientGoals", fields: [patientId], references: [id])
+
+  therapistId String
+  therapist   User       @relation("TherapistGoals", fields: [therapistId], references: [id])
+
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+
+// ----------------------------------------------------
+// MODELO CHECKIN (PENDIENTE DE IMPLEMENTAR LÓGICA)
+// ----------------------------------------------------
+model Checkin {
+  id        String    @id @default(uuid())
+  moodScore Int?
+  notes     String?
   date      DateTime  @default(now())
-  mood      Int 
-  anxiety   Int 
-  energy    Int 
-  thoughts  String?
-  
+
+  // Relación con Paciente
   patientId String
   patient   User      @relation(fields: [patientId], references: [id])
-}
-
-// ------------------------------------------------------------------------
-// MODELO GOAL (Meta) (CORREGIDO)
-// ------------------------------------------------------------------------
-model Goal {
-  id        String    @id @default(cuid())
-  title     String
-  metric    String 
-  target    String 
-  dueDate   DateTime?
-  status    String    @default("active")
-  createdAt DateTime  @default(now())
-
-  // Relaciones con el Paciente (sin cambios)
-  patientId String
-  patient   User      @relation("PatientGoals", fields: [patientId], references: [id])
   
-  // Relación con el Terapeuta (NUEVO: Necesario para el controlador)
-  therapistId String
-  therapist   User      @relation("GoalsCreatedByTherapist", fields: [therapistId], references: [id])
-}
-
-// ------------------------------------------------------------------------
-// MODELO ASSIGNMENT (Asignación o Tarea) (Sin cambios necesarios)
-// ------------------------------------------------------------------------
-model Assignment {
-  id          String    @id @default(cuid())
-  title       String
-  description String
-  dueDate     DateTime?
-  status      String    @default("pending")
-  createdAt   DateTime  @default(now())
-
-  patientId   String
-  patient     User      @relation("PatientAssignments", fields: [patientId], references: [id])
-}
-
-// ------------------------------------------------------------------------
-// MODELO MESSAGE (Sin cambios necesarios)
-// ------------------------------------------------------------------------
-model Message {
-  id        String    @id @default(cuid())
-  content   String
   createdAt DateTime  @default(now())
-
-  senderId  String
-  sender    User      @relation("SentMessages", fields: [senderId], references: [id])
-
-  receiverId String
-  receiver  User      @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  updatedAt DateTime  @updatedAt
 }
