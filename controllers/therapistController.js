@@ -1,7 +1,7 @@
 // controllers/therapistController.js
 
 const prisma = require('../utils/prismaClient'); 
-// ⚠️ CRÍTICO: Asegurarse que el Role esté importado para evitar ReferenceError
+// CRÍTICO: Asegurarse que el Role esté importado
 const { Role } = require('@prisma/client'); 
 
 // Función de utilidad para obtener el ID del usuario de forma defensiva
@@ -93,7 +93,7 @@ exports.assignPatient = async (req, res) => {
 
 exports.createGoal = async (req, res) => {
     const therapistId = getUserId(req);
-    // ⚠️ CRÍTICO: Incluir 'metric' en la desestructuración
+    // ⚠️ CORRECCIÓN 1: Incluir 'metric' en la desestructuración
     const { patientId, title, description, dueDate, metric } = req.body; 
 
     if (!patientId || !title || !dueDate) {
@@ -154,7 +154,7 @@ exports.getPatientGoals = async (req, res) => {
 
         const goals = await prisma.goal.findMany({
             where: { patientId: patientId },
-            // ⚠️ CRÍTICO: Corregida la sintaxis de orderBy. Debe ser un array de objetos.
+            // ⚠️ CORRECCIÓN 2: Sintaxis de orderBy corregida (array de objetos)
             orderBy: [
                 { dueDate: 'asc' }, 
                 { createdAt: 'desc' }
