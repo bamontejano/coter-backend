@@ -42,7 +42,6 @@ model User {
 
   // Relación con Terapeuta (si el usuario es un paciente)
   therapistId  String?
-  // Relación uno a muchos (un terapeuta tiene muchos pacientes)
   therapist    User?     @relation("TherapistPatients", fields: [therapistId], references: [id], onDelete: SetNull)
 
   // Relación con Pacientes (si el usuario es un terapeuta)
@@ -68,6 +67,7 @@ model Goal {
   id          String     @id @default(uuid())
   title       String
   description String?    // Opcional
+  metric      String?    // ⚠️ CRÍTICO: Campo 'metric' añadido para corregir el error de la DB
   dueDate     DateTime   // Fecha límite
   status      GoalStatus @default(PENDING)
 
@@ -84,7 +84,7 @@ model Goal {
 
 
 // ----------------------------------------------------
-// MODELO CHECKIN (PENDIENTE DE IMPLEMENTAR LÓGICA)
+// MODELO CHECKIN
 // ----------------------------------------------------
 model Checkin {
   id        String    @id @default(uuid())
