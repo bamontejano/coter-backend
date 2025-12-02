@@ -67,7 +67,8 @@ model Goal {
   id          String     @id @default(uuid())
   title       String
   description String?    // Opcional
-  metric      String?    // ⚠️ CRÍTICO: Campo 'metric' añadido para corregir el error de la DB
+  metric      String?    // Campo añadido por el error previo
+  target      String?    // ⚠️ CRÍTICO: Campo 'target' añadido para corregir el error actual
   dueDate     DateTime   // Fecha límite
   status      GoalStatus @default(PENDING)
 

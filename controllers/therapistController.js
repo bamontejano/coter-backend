@@ -1,10 +1,8 @@
 // controllers/therapistController.js
 
 const prisma = require('../utils/prismaClient'); 
-// CRÍTICO: Asegurarse que el Role esté importado
 const { Role } = require('@prisma/client'); 
 
-// Función de utilidad para obtener el ID del usuario de forma defensiva
 const getUserId = (req) => req.user.id || req.user.userId;
 
 // ----------------------------------------------------------------------
@@ -93,8 +91,8 @@ exports.assignPatient = async (req, res) => {
 
 exports.createGoal = async (req, res) => {
     const therapistId = getUserId(req);
-    // ⚠️ CORRECCIÓN 1: Incluir 'metric' en la desestructuración
-    const { patientId, title, description, dueDate, metric } = req.body; 
+    // ⚠️ CRÍTICO: Incluir 'target' y 'metric' en la desestructuración
+    const { patientId, title, description, dueDate, metric, target } = req.body; 
 
     if (!patientId || !title || !dueDate) {
         return res.status(400).json({ message: 'Faltan campos obligatorios (patientId, title, dueDate).' });
@@ -115,7 +113,8 @@ exports.createGoal = async (req, res) => {
                 therapistId: therapistId,
                 title: title,
                 description: description || null,
-                metric: metric || null, // ⚠️ CRÍTICO: Campo 'metric' usado aquí
+                metric: metric || null, 
+                target: target || null, // ⚠️ CRÍTICO: Campo 'target' usado aquí
                 dueDate: new Date(dueDate), 
                 status: 'PENDING' 
             }
@@ -154,7 +153,7 @@ exports.getPatientGoals = async (req, res) => {
 
         const goals = await prisma.goal.findMany({
             where: { patientId: patientId },
-            // ⚠️ CORRECCIÓN 2: Sintaxis de orderBy corregida (array de objetos)
+            // La sintaxis de orderBy ya está corregida a array de objetos
             orderBy: [
                 { dueDate: 'asc' }, 
                 { createdAt: 'desc' }
