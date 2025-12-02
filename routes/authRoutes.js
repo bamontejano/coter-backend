@@ -11,7 +11,7 @@ const router = express.Router();
 const authController = require('../controllers/authController');
 
 // Importamos el middleware de autenticación (Necesario para rutas protegidas, si lo tienes)
-const authMiddleware = require('../middleware/authMiddleware'); 
+const { protect } = require('../middleware/auth'); 
 
 // ----------------------------------------------------
 // DEFINICIÓN DE RUTAS (API /api/auth)

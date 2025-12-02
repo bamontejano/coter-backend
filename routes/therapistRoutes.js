@@ -3,14 +3,15 @@
 const express = require('express');
 const router = express.Router();
 const therapistController = require('../controllers/therapistController');
-// ⚠️ CORRECCIÓN: Importar las dos funciones protect y restrictTo
+// ⚠️ CORRECCIÓN: Importar las funciones protect y restrictTo del nuevo archivo auth.js
 const { protect, restrictTo } = require('../middleware/auth'); 
 
 // ----------------------------------------------------
 // RUTAS DE ACCESO AL TERAPEUTA (Prefijo: /api/therapist)
 // ----------------------------------------------------
 
-// ⚠️ CRÍTICO: Aplicar ambos middlewares a todas las rutas de terapeuta
+// ⚠️ CRÍTICO: Aplicar AMBOS middlewares a todas las rutas de terapeuta.
+// Primero se comprueba el token (protect), luego el rol (restrictTo('THERAPIST')).
 router.use(protect, restrictTo('THERAPIST'));
 
 // 1. OBTENER PACIENTES ASIGNADOS 
