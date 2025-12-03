@@ -1,68 +1,76 @@
 // controllers/patientController.js
-const prisma = require('../utils/prismaClient'); 
 
-// Controlador defensivo: usa req.user.id o req.user.userId
+const prisma = require('../utils/prismaClient'); 
+// Función de utilidad para obtener el ID del usuario del token
 const getUserId = (req) => req.user.id || req.user.userId;
 
 // ----------------------------------------------------------------------
-// 1. OBTENER PERFIL DEL PACIENTE (GET /api/patient/profile)
+// 1. CREAR NUEVO CHECK-IN (POST /api/patient/checkin)
 // ----------------------------------------------------------------------
 
-exports.getProfile = async (req, res) => {
+exports.createCheckin = async (req, res) => {
     const patientId = getUserId(req);
+    const { moodScore, notes } = req.body; 
+
+    // El moodScore es obligatorio para registrar un check-in
+    if (!moodScore) {
+        return res.status(400).json({ message: 'El puntaje de ánimo (moodScore) es obligatorio para el check-in.' });
+    }
+
+    // Validación básica del score (asumiendo que es de 1 a 5)
+    if (moodScore < 1 || moodScore > 5) {
+        return res.status(400).json({ message: 'El puntaje de ánimo debe estar entre 1 y 5.' });
+    }
 
     try {
-        const profile = await prisma.user.findUnique({
-            where: { id: patientId, role: 'PATIENT' },
-            // Selecciona solo la información que el paciente debe ver
-            select: {
-                id: true,
-                firstName: true,
-                email: true,
-                therapistId: true,
-                createdAt: true,
-                // Si el paciente tiene un terapeuta asignado, incluimos sus datos
-                therapist: {
-                    select: {
-                        firstName: true,
-                        email: true
-                    }
-                }
+        const newCheckin = await prisma.checkin.create({
+            data: {
+                patientId: patientId,
+                moodScore: parseInt(moodScore), // Aseguramos que sea Integer
+                notes: notes || null,
+                // date y timestamps por defecto usan now()
             }
         });
 
-        if (!profile) {
-            return res.status(404).json({ message: 'Perfil de paciente no encontrado.' });
-        }
+        res.status(201).json({ 
+            message: 'Check-in registrado exitosamente.',
+            checkin: newCheckin
+        });
 
-        res.status(200).json(profile);
     } catch (error) {
-        console.error("Error al obtener perfil del paciente:", error);
-        res.status(500).json({ message: 'Error interno del servidor.' });
+        console.error("Error al crear check-in:", error.message);
+        res.status(500).json({ 
+            message: 'Error interno al registrar el check-in.',
+            details: error.message
+        });
     }
 };
-
 
 // ----------------------------------------------------------------------
 // 2. OBTENER METAS ASIGNADAS (GET /api/patient/goals)
 // ----------------------------------------------------------------------
-exports.getGoals = (req, res) => {
-    // 💡 Lógica pendiente: Consultar metas por patientId.
-    res.status(200).json({ message: 'Endpoint de metas del paciente. Lógica pendiente.' });
-};
 
-// ----------------------------------------------------------------------
-// 3. ENVIAR CHECK-IN DIARIO (POST /api/patient/checkin)
-// ----------------------------------------------------------------------
-exports.submitCheckin = (req, res) => {
-    // 💡 Lógica pendiente: Recibir datos de check-in (ej. mood, notas) y guardarlos.
-    res.status(200).json({ message: 'Endpoint de check-in. Lógica pendiente.' });
-};
+exports.getAssignedGoals = async (req, res) => {
+    const patientId = getUserId(req);
 
-// ----------------------------------------------------------------------
-// 4. OBTENER TAREAS ASIGNADAS (GET /api/patient/assignments)
-// ----------------------------------------------------------------------
-exports.getAssignments = (req, res) => {
-    // 💡 Lógica pendiente: Obtener tareas/lecturas asignadas por el terapeuta.
-    res.status(200).json({ message: 'Endpoint de tareas. Lógica pendiente.' });
+    try {
+        // Obtenemos todas las metas donde este usuario es el paciente
+        const goals = await prisma.goal.findMany({
+            where: { patientId: patientId },
+            // Mantenemos la lógica de ordenación que ya probamos
+            orderBy: [
+                { dueDate: 'asc' }, 
+                { createdAt: 'desc' }
+            ]
+        });
+
+        res.status(200).json(goals);
+        
+    } catch (error) {
+        console.error("Error al obtener metas del paciente:", error.message);
+        res.status(500).json({ 
+            message: 'Error interno al obtener las metas asignadas.',
+            details: error.message
+        });
+    }
 };

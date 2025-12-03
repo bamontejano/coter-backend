@@ -9,9 +9,9 @@ const cors = require('cors');
 // Importación de rutas
 const authRoutes = require('./routes/authRoutes');
 const therapistRoutes = require('./routes/therapistRoutes');
-// const patientRoutes = require('./routes/patientRoutes'); // Se puede descomentar cuando se implemente
+const patientRoutes = require('./routes/patientRoutes'); // ⬅️ IMPORTACIÓN DEL PACIENTE
 
-// ⚠️ CORRECCIÓN CRÍTICA: Usar process.env.PORT (asignado por Render) como prioridad.
+// ⚠️ CRÍTICO: Usar process.env.PORT (asignado por Render) como prioridad.
 const PORT = process.env.PORT || 10000; 
 
 // Inicializar la aplicación Express
@@ -50,8 +50,8 @@ app.use('/api/auth', authRoutes);
 // Rutas del Terapeuta (Pacientes, Metas)
 app.use('/api/therapist', therapistRoutes);
 
-// Rutas del Paciente (Check-ins, Metas)
-// app.use('/api/patient', patientRoutes); // Se puede habilitar después de crearlas
+// Rutas del Paciente (Check-ins, Metas) ⬅️ USO DE LA NUEVA RUTA
+app.use('/api/patient', patientRoutes); 
 
 // Manejo de rutas no encontradas (404)
 app.use((req, res, next) => {

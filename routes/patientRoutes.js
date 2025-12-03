@@ -2,21 +2,19 @@
 
 const express = require('express');
 const router = express.Router();
-const patientController = require('../controllers/patientController'); 
-const { protect, restrictTo } = require('../middleware/auth'); // Importación corregida
+const patientController = require('../controllers/patientController');
+const authMiddleware = require('../middleware/authMiddleware'); 
 
-router.use(protect, restrictTo('PATIENT'));
+// ----------------------------------------------------
+// RUTAS DE ACCESO AL PACIENTE (Prefijo: /api/patient)
+// ----------------------------------------------------
 
-// 1. OBTENER PERFIL DEL PACIENTE
-router.get('/profile', patientController.getProfile); 
+// 1. Crear un nuevo Check-in (Solo accesible por el paciente)
+router.post('/checkin', authMiddleware, patientController.createCheckin); 
 
-// 2. OBTENER METAS ASIGNADAS
-router.get('/goals', patientController.getGoals); 
+// 2. Obtener todas las metas asignadas al paciente
+router.get('/goals', authMiddleware, patientController.getAssignedGoals); 
 
-// 3. ENVIAR UN CHECK-IN DIARIO
-router.post('/checkin', patientController.submitCheckin);
-
-// 4. OBTENER TAREAS ASIGNADAS
-router.get('/assignments', patientController.getAssignments); 
+// ----------------------------------------------------
 
 module.exports = router;
