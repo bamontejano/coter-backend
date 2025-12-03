@@ -225,3 +225,61 @@ exports.getPatientProfile = async (req, res) => {
         });
     }
 };
+
+// ----------------------------------------------------------------------
+// 6. ACTUALIZAR OBJETIVO (PATCH /api/therapist/goals/:goalId)
+// ----------------------------------------------------------------------
+
+exports.updateGoal = async (req, res) => {
+    const therapistId = req.user.id || req.user.userId;
+    const goalId = req.params.goalId;
+    // Extraemos solo los campos que permitimos actualizar
+    const { title, description, dueDate, metric, target, status } = req.body;
+
+    // Construir el objeto de datos a actualizar, solo incluyendo los campos proporcionados
+    const updateData = {};
+    if (title !== undefined) updateData.title = title;
+    if (description !== undefined) updateData.description = description;
+    if (dueDate !== undefined) updateData.dueDate = new Date(dueDate);
+    if (metric !== undefined) updateData.metric = metric;
+    if (target !== undefined) updateData.target = target;
+    // El status es CRÍTICO, ya que lo usará el terapeuta para marcar como COMPLETED
+    if (status !== undefined) updateData.status = status; 
+    
+    // Asegurar que hay algo para actualizar
+    if (Object.keys(updateData).length === 0) {
+        return res.status(400).json({ message: 'No se proporcionaron datos para actualizar.' });
+    }
+
+    try {
+        // 1. Verificar si la Meta existe y pertenece a un paciente del terapeuta actual
+        const goal = await prisma.goal.findFirst({
+            where: {
+                id: goalId,
+                therapistId: therapistId // Validación de propiedad CRÍTICA
+            }
+        });
+
+        if (!goal) {
+            return res.status(404).json({ message: 'Meta no encontrada o no pertenece a uno de sus pacientes.' });
+        }
+
+        // 2. Actualizar la Meta
+        const updatedGoal = await prisma.goal.update({
+            where: { id: goalId },
+            data: updateData
+        });
+
+        res.status(200).json({ 
+            message: 'Meta actualizada exitosamente.',
+            goal: updatedGoal
+        });
+
+    } catch (error) {
+        console.error("Error al actualizar objetivo:", error.message);
+        res.status(500).json({ 
+            message: 'Error interno al actualizar el objetivo.',
+            details: error.message
+        });
+    }
+};
