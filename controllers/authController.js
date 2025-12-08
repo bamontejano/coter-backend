@@ -4,100 +4,102 @@ const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
-// El cliente Prisma
 const prisma = new PrismaClient();
-
-// 🚨 CRÍTICO: Asegúrate de que esta variable de entorno esté definida:
-// 1. En tu archivo .env local: THERAPIST_INVITE_CODE=TU_CODIGO_SECRETO
-// 2. En la configuración de variables de entorno de Render.
 
 // Función helper para generar el token JWT
 const signToken = id => {
-    // 🚨 CAMBIO CLAVE: Usar un valor de emergencia si la variable de entorno falta
-    const secret = process.env.JWT_SECRET || 'ESTE_SECRETO_DEBE_SER_REEMPLAZADO_EN_PRODUCCION';
+    // 🚨 CORRECCIÓN: Usar un valor de emergencia si JWT_SECRET no está definido en Render, evitando colapsos 500.
+    const secret = process.env.JWT_SECRET || 'SECRETO_TEMPORAL_DEV_2025';
     const expiresIn = process.env.JWT_EXPIRES_IN || '90d';
     
     return jwt.sign({ id }, secret, {
         expiresIn: expiresIn
     });
+};
 
 // =========================================================================
 // 1. REGISTRO DE USUARIO (POST /api/auth/register)
 // =========================================================================
 exports.register = async (req, res) => {
-    // 🚨 CAMBIO CLAVE: Incluir 'lastName' y separar 'invitationCode'
+    // 🚨 CORRECCIÓN: Incluir lastName en la desestructuración.
     const { firstName, lastName, email, password, role, invitationCode } = req.body;
 
+    // 🚨 CORRECCIÓN: Validar también el apellido.
     if (!firstName || !lastName || !email || !password || !role) {
         return res.status(400).json({ message: "Faltan campos obligatorios: nombre, apellido, email, password, rol." });
     }
 
     if (role !== 'THERAPIST' && role !== 'PATIENT') {
-        return res.status(400).json({ message: "Rol de usuario inválido." });
+        return res.status(400).json({ message: "Rol no válido. Debe ser 'THERAPIST' o 'PATIENT'." });
     }
     
+    if (password.length < 8) {
+        return res.status(400).json({ message: "La contraseña debe tener al menos 8 caracteres." });
+    }
+
     try {
-        // ----------------------------------------------------
-        // 1. VALIDACIÓN DEL CÓDIGO DE INVITACIÓN (SÓLO TERAPEUTA)
-        // ----------------------------------------------------
+        // 1. Verificar si el usuario ya existe
+        const existingUser = await prisma.user.findUnique({ where: { email } });
+        if (existingUser) {
+            // 🚨 CORRECCIÓN: Usar 409 Conflict para email duplicado
+            return res.status(409).json({ message: "Este email ya está registrado." });
+        }
+
+        // 2. LÓGICA DE CÓDIGO DE INVITACIÓN (Solo Validación)
         if (role === 'THERAPIST') {
-            const requiredCode = process.env.THERAPIST_INVITE_CODE;
-            
-            if (!requiredCode) {
-                 // Esto es un fallo de configuración interno, deberíamos usar 500
-                 console.error("CRÍTICO: THERAPIST_INVITE_CODE no está configurado en las variables de entorno.");
-                 return res.status(500).json({ message: "Error interno: El código de invitación no está configurado en el servidor." });
+            if (!invitationCode) {
+                return res.status(400).json({ message: "El código de invitación es obligatorio para el registro de terapeutas." });
             }
 
-            if (invitationCode !== requiredCode) {
-                // ⚠️ Devolver 400 AQUÍ (Validación de Negocio)
-                return res.status(400).json({ message: 'El código de invitación es obligatorio para el registro de terapeutas.' });
+            const CORRECT_INVITE_CODE = process.env.THERAPIST_INVITE_CODE;
+            
+            if (!CORRECT_INVITE_CODE) {
+                 console.error("ERROR CRÍTICO: La variable THERAPIST_INVITE_CODE no está definida en Render.");
+                 return res.status(500).json({ message: "Error interno del servidor. Falta el código de invitación maestro." });
             }
-        }
+
+            if (invitationCode !== CORRECT_INVITE_CODE) {
+                return res.status(403).json({ message: "Código de invitación no válido." });
+            }
+        } 
         
-        // ----------------------------------------------------
-        // 2. CREACIÓN DEL USUARIO (SÓLO CAMPOS DEL MODELO)
-        // ----------------------------------------------------
-        
-        // 🚨 CRÍTICO: El campo 'invitationCode' ya NO está en el objeto 'data'
+        // 3. Hash de la Contraseña
         const hashedPassword = await bcrypt.hash(password, 12);
-        
+
+        // 4. Crear Usuario en la Base de Datos
         const newUser = await prisma.user.create({
             data: {
                 firstName,
-                lastName, // Asumiendo que existe en tu modelo.
+                lastName, // Incluir lastName en la inserción
                 email,
                 password: hashedPassword,
                 role,
-                // invitationCode YA NO SE INCLUYE AQUÍ
+                // 🚨 CORRECCIÓN CRÍTICA: ELIMINAR 'invitationCode' de la data de Prisma.
             }
         });
 
-        // ----------------------------------------------------
-        // 3. GENERACIÓN DE TOKEN Y RESPUESTA
-        // ----------------------------------------------------
+        // 5. Generar JWT
         const token = signToken(newUser.id);
 
+        // 6. Enviar Respuesta Exitosa (Ajustada para que el frontend lo use fácilmente)
         res.status(201).json({
             status: 'success',
             token,
             userId: newUser.id,
             firstName: newUser.firstName,
             role: newUser.role,
-            message: 'Registro exitoso.'
         });
 
     } catch (error) {
-        // Manejar errores de Prisma (ej: email duplicado)
+        // Manejar error de email duplicado (Prisma P2002) - Aunque ya lo cubrimos, es un buen fallback.
         if (error.code === 'P2002') {
-            return res.status(400).json({ message: `El email '${error.meta.target.join(', ')}' ya está registrado.` });
+             return res.status(409).json({ 
+                 message: `El email ya está registrado.` 
+             });
         }
         
-        // El error 500 ocurre si hay un error no manejado
         console.error("Error en el registro:", error);
-        res.status(500).json({ 
-            message: 'Error interno del servidor durante el registro.' 
-        });
+        res.status(500).json({ message: "Error interno del servidor durante el registro." });
     }
 };
 
@@ -116,7 +118,6 @@ exports.login = async (req, res) => {
         const user = await prisma.user.findUnique({ where: { email } });
 
         // 2. Verificar si el usuario existe y si la contraseña es correcta
-        // Asumiendo que bcrypt.compare funciona
         if (!user || !(await bcrypt.compare(password, user.password))) {
             return res.status(401).json({ message: "Credenciales incorrectas (email o contraseña)." });
         }
@@ -135,8 +136,6 @@ exports.login = async (req, res) => {
 
     } catch (error) {
         console.error("Error en el login:", error);
-        res.status(500).json({ 
-            message: "Error interno del servidor durante el login." 
-        });
+        res.status(500).json({ message: "Error interno del servidor durante el inicio de sesión." });
     }
 };
