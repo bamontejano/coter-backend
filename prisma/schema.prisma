@@ -52,3 +52,63 @@ model PatientTherapist {
   // Restricción para evitar duplicados
   @@unique([therapistId, patientId])
 }
+
+// ----------------------------------------------------------------------
+// 3. NUEVO MODELO GOAL (Metas Terapéuticas)
+// ----------------------------------------------------------------------
+
+model Goal {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  metric      String?
+  target      Int?
+  dueDate     DateTime
+  status      String   @default("PENDING") // PENDING, COMPLETED, ARCHIVED, etc.
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relación con el paciente (User)
+  patientId   String
+  patient     User     @relation("PatientGoals", fields: [patientId], references: [id])
+
+  // Relación con el terapeuta (User)
+  therapistId String
+  therapist   User     @relation("TherapistGoals", fields: [therapistId], references: [id])
+}
+
+// ----------------------------------------------------------------------
+// 4. NUEVO MODELO CHECKIN (Registros diarios o semanales)
+// ----------------------------------------------------------------------
+
+model Checkin {
+  id          String   @id @default(uuid())
+  date        DateTime @default(now())
+  mood        String?  // Ej: 'happy', 'sad', 'neutral'
+  notes       String?
+  
+  // Relación con el paciente (User)
+  patientId   String
+  patient     User     @relation("PatientCheckins", fields: [patientId], references: [id])
+  
+  // Restricción única para asegurar solo un check-in por día (opcional)
+  @@unique([patientId, date])
+}
+
+// ----------------------------------------------------------------------
+// 5. ACTUALIZACIÓN DEL MODELO USER (CRÍTICO)
+// ----------------------------------------------------------------------
+
+// Ahora tenemos que añadir las relaciones inversas a tu modelo User:
+// Busca el modelo 'User' existente y añade estas tres líneas:
+
+// ... (dentro de model User { )
+  // Tus líneas existentes:
+  patients             PatientTherapist[] @relation(name: "TherapistPatients")
+  assignedByTherapist  PatientTherapist[] @relation(name: "PatientTherapist")
+
+  // 🚨 LÍNEAS NUEVAS A AÑADIR EN USER 🚨
+  checkins             Checkin[] @relation("PatientCheckins") // Relación con los checkins
+  goalsCreatedBy       Goal[]    @relation("TherapistGoals")  // Metas creadas por el terapeuta
+  goals                Goal[]    @relation("PatientGoals")    // Metas asignadas al paciente
+// ... (cierre de model User } )
