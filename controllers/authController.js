@@ -6,13 +6,14 @@ const jwt = require('jsonwebtoken');
 
 const prisma = new PrismaClient();
 
-// Función helper para generar el token JWT
-const signToken = id => {
-    // CORRECCIÓN: Usar un valor de emergencia si JWT_SECRET no está definido en Render.
+// 🚨 CORRECCIÓN 1: La función debe recibir el ID y el ROL
+const signToken = (id, role) => { 
+    // Usar un valor de emergencia si JWT_SECRET no está definido en Render.
     const secret = process.env.JWT_SECRET || 'SECRETO_TEMPORAL_DEV_2025';
     const expiresIn = process.env.JWT_EXPIRES_IN || '90d';
     
-    return jwt.sign({ id }, secret, {
+    // 🚨 CAMBIO CLAVE: Incluir el rol en el payload del JWT
+    return jwt.sign({ id, role }, secret, { 
         expiresIn: expiresIn
     });
 };
@@ -21,10 +22,8 @@ const signToken = id => {
 // 1. REGISTRO DE USUARIO (POST /api/auth/register)
 // =========================================================================
 exports.register = async (req, res) => {
-    // 🚨 CAMBIO: Incluir lastName en la desestructuración.
     const { firstName, lastName, email, password, role, invitationCode } = req.body;
 
-    // 🚨 CAMBIO: Validar también el apellido.
     if (!firstName || !lastName || !email || !password || !role) {
         return res.status(400).json({ message: "Faltan campos obligatorios: nombre, apellido, email, password, rol." });
     }
@@ -38,13 +37,12 @@ exports.register = async (req, res) => {
     }
 
     try {
-        // 1. Verificar si el usuario ya existe
         const existingUser = await prisma.user.findUnique({ where: { email } });
         if (existingUser) {
             return res.status(409).json({ message: "Este email ya está registrado." });
         }
 
-        // 2. LÓGICA DE CÓDIGO DE INVITACIÓN (Solo Validación)
+        // LÓGICA DE CÓDIGO DE INVITACIÓN (Solo Validación)
         if (role === 'THERAPIST') {
             if (!invitationCode) {
                 return res.status(400).json({ message: "El código de invitación es obligatorio para el registro de terapeutas." });
@@ -62,28 +60,23 @@ exports.register = async (req, res) => {
             }
         } 
         
-        // 3. Hash de la Contraseña
         const hashedPassword = await bcrypt.hash(password, 12);
-
-        // 4. Crear Usuario en la Base de Datos
-        // 🚨 CAMBIO CRÍTICO: Concatenar firstName y lastName en el campo 'firstName'
+        
+        // Concatenar nombre y apellido
         const fullName = `${firstName.trim()} ${lastName.trim()}`;
 
         const newUser = await prisma.user.create({
             data: {
-                // Solo se usa el campo 'firstName' para almacenar el nombre completo
                 firstName: fullName,
                 email,
                 password: hashedPassword,
                 role,
-                // 'invitationCode' y 'lastName' se excluyen para cumplir con el modelo de DB
             }
         });
 
-        // 5. Generar JWT
-        const token = signToken(newUser.id);
+        // 🚨 CORRECCIÓN 2: Pasar el ROL a signToken
+        const token = signToken(newUser.id, newUser.role); 
 
-        // 6. Enviar Respuesta Exitosa
         res.status(201).json({
             status: 'success',
             token,
@@ -124,9 +117,10 @@ exports.login = async (req, res) => {
         }
 
         // 3. Generar JWT
-        const token = signToken(user.id);
+        // 🚨 CORRECCIÓN 3: Pasar el ROL a signToken
+        const token = signToken(user.id, user.role); 
 
-        // 4. Enviar Respuesta Exitosa (Ajustada para que el frontend lo use fácilmente)
+        // 4. Enviar Respuesta Exitosa
         res.status(200).json({
             status: 'success',
             token,
