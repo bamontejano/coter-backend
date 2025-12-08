@@ -4,59 +4,52 @@ generator client {
   provider = "prisma-client-js"
 }
 
-// CRÍTICO: Asegúrate de que el proveedor sea "postgresql"
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-// ----------------------------------------------------------------------
-// 1. MODELO USER (Simplificado al MÍNIMO para evitar conflicto)
-// ----------------------------------------------------------------------
-
+// ======================================================================
+// 1. MODELO USER (Terapeuta y Paciente)
+// ======================================================================
 model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
-  password     String
-  firstName    String
-  role         String 
-  
-  // Relaciones necesarias
-  patients             PatientTherapist[] @relation(name: "TherapistPatients")
-  assignedByTherapist  PatientTherapist[] @relation(name: "PatientTherapist")
+  id                    String             @id @default(uuid())
+  email                 String             @unique
+  password              String
+  firstName             String
+  role                  String
+
+  // Relaciones Terapeuta/Paciente (muchos a muchos)
+  patients              PatientTherapist[] @relation(name: "TherapistPatients") // Pacientes a cargo (rol: THERAPIST)
+  assignedByTherapist   PatientTherapist[] @relation(name: "PatientTherapist")  // Relaciones a las que pertenece (rol: PATIENT)
+
+  // Relaciones con Metas y Check-ins (CRÍTICO para getPatientProfile)
+  checkins              Checkin[]          @relation("PatientCheckins")        // Check-ins realizados por el paciente
+  goals                 Goal[]             @relation("PatientGoals")           // Metas asignadas al paciente
+  goalsCreatedBy        Goal[]             @relation("TherapistGoals")         // Metas creadas por el terapeuta
 }
 
-// ----------------------------------------------------------------------
-// 2. NUEVO MODELO PATIENTTHERAPIST (La tabla de relaciones)
-// ----------------------------------------------------------------------
-
+// ======================================================================
+// 2. MODELO PATIENTTHERAPIST (Tabla de relaciones)
+// ======================================================================
 model PatientTherapist {
-  // ID único de la relación
-  id           String   @id @default(uuid()) 
-  
-  // Campo ID del Terapeuta y la relación con el modelo User
-  therapistId  String
-  therapist    User     @relation(name: "TherapistPatients", fields: [therapistId], references: [id])
+  id            String    @id @default(uuid())
+  therapistId   String
+  therapist     User      @relation(name: "TherapistPatients", fields: [therapistId], references: [id])
 
-  // Campo ID del Paciente y la relación con el modelo User
-  patientId    String
-  patient      User     @relation(name: "PatientTherapist", fields: [patientId], references: [id])
+  patientId     String
+  patient       User      @relation(name: "PatientTherapist", fields: [patientId], references: [id])
 
-  // CRÍTICO: Campo de estado para archivar/activar la relación
-  isActive     Boolean  @default(true)
-  
-  // Campos de fecha (opcionales, pero comunes)
-  assignedAt   DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  
-  // Restricción para evitar duplicados
+  isActive      Boolean   @default(true)
+  assignedAt    DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
   @@unique([therapistId, patientId])
 }
 
-// ----------------------------------------------------------------------
-// 3. NUEVO MODELO GOAL (Metas Terapéuticas)
-// ----------------------------------------------------------------------
-
+// ======================================================================
+// 3. MODELO GOAL (Metas Terapéuticas)
+// ======================================================================
 model Goal {
   id          String   @id @default(uuid())
   title       String
@@ -68,47 +61,28 @@ model Goal {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  // Relación con el paciente (User)
+  // Relación con el paciente
   patientId   String
   patient     User     @relation("PatientGoals", fields: [patientId], references: [id])
 
-  // Relación con el terapeuta (User)
+  // Relación con el terapeuta (quién la creó)
   therapistId String
   therapist   User     @relation("TherapistGoals", fields: [therapistId], references: [id])
 }
 
-// ----------------------------------------------------------------------
-// 4. NUEVO MODELO CHECKIN (Registros diarios o semanales)
-// ----------------------------------------------------------------------
-
+// ======================================================================
+// 4. MODELO CHECKIN (Registros diarios o semanales)
+// ======================================================================
 model Checkin {
   id          String   @id @default(uuid())
   date        DateTime @default(now())
   mood        String?  // Ej: 'happy', 'sad', 'neutral'
   notes       String?
   
-  // Relación con el paciente (User)
+  // Relación con el paciente
   patientId   String
   patient     User     @relation("PatientCheckins", fields: [patientId], references: [id])
   
-  // Restricción única para asegurar solo un check-in por día (opcional)
+  // Restricción única para asegurar solo un check-in por paciente/día
   @@unique([patientId, date])
 }
-
-// ----------------------------------------------------------------------
-// 5. ACTUALIZACIÓN DEL MODELO USER (CRÍTICO)
-// ----------------------------------------------------------------------
-
-// Ahora tenemos que añadir las relaciones inversas a tu modelo User:
-// Busca el modelo 'User' existente y añade estas tres líneas:
-
-// ... (dentro de model User { )
-  // Tus líneas existentes:
-  patients             PatientTherapist[] @relation(name: "TherapistPatients")
-  assignedByTherapist  PatientTherapist[] @relation(name: "PatientTherapist")
-
-  // 🚨 LÍNEAS NUEVAS A AÑADIR EN USER 🚨
-  checkins             Checkin[] @relation("PatientCheckins") // Relación con los checkins
-  goalsCreatedBy       Goal[]    @relation("TherapistGoals")  // Metas creadas por el terapeuta
-  goals                Goal[]    @relation("PatientGoals")    // Metas asignadas al paciente
-// ... (cierre de model User } )
