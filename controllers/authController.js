@@ -8,7 +8,7 @@ const prisma = new PrismaClient();
 
 // Función helper para generar el token JWT
 const signToken = id => {
-    // 🚨 CORRECCIÓN: Usar un valor de emergencia si JWT_SECRET no está definido en Render, evitando colapsos 500.
+    // CORRECCIÓN: Usar un valor de emergencia si JWT_SECRET no está definido en Render.
     const secret = process.env.JWT_SECRET || 'SECRETO_TEMPORAL_DEV_2025';
     const expiresIn = process.env.JWT_EXPIRES_IN || '90d';
     
@@ -21,10 +21,10 @@ const signToken = id => {
 // 1. REGISTRO DE USUARIO (POST /api/auth/register)
 // =========================================================================
 exports.register = async (req, res) => {
-    // 🚨 CORRECCIÓN: Incluir lastName en la desestructuración.
+    // 🚨 CAMBIO: Incluir lastName en la desestructuración.
     const { firstName, lastName, email, password, role, invitationCode } = req.body;
 
-    // 🚨 CORRECCIÓN: Validar también el apellido.
+    // 🚨 CAMBIO: Validar también el apellido.
     if (!firstName || !lastName || !email || !password || !role) {
         return res.status(400).json({ message: "Faltan campos obligatorios: nombre, apellido, email, password, rol." });
     }
@@ -41,7 +41,6 @@ exports.register = async (req, res) => {
         // 1. Verificar si el usuario ya existe
         const existingUser = await prisma.user.findUnique({ where: { email } });
         if (existingUser) {
-            // 🚨 CORRECCIÓN: Usar 409 Conflict para email duplicado
             return res.status(409).json({ message: "Este email ya está registrado." });
         }
 
@@ -67,21 +66,24 @@ exports.register = async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, 12);
 
         // 4. Crear Usuario en la Base de Datos
+        // 🚨 CAMBIO CRÍTICO: Concatenar firstName y lastName en el campo 'firstName'
+        const fullName = `${firstName.trim()} ${lastName.trim()}`;
+
         const newUser = await prisma.user.create({
             data: {
-                firstName,
-                lastName, // Incluir lastName en la inserción
+                // Solo se usa el campo 'firstName' para almacenar el nombre completo
+                firstName: fullName,
                 email,
                 password: hashedPassword,
                 role,
-                // 🚨 CORRECCIÓN CRÍTICA: ELIMINAR 'invitationCode' de la data de Prisma.
+                // 'invitationCode' y 'lastName' se excluyen para cumplir con el modelo de DB
             }
         });
 
         // 5. Generar JWT
         const token = signToken(newUser.id);
 
-        // 6. Enviar Respuesta Exitosa (Ajustada para que el frontend lo use fácilmente)
+        // 6. Enviar Respuesta Exitosa
         res.status(201).json({
             status: 'success',
             token,
@@ -91,7 +93,6 @@ exports.register = async (req, res) => {
         });
 
     } catch (error) {
-        // Manejar error de email duplicado (Prisma P2002) - Aunque ya lo cubrimos, es un buen fallback.
         if (error.code === 'P2002') {
              return res.status(409).json({ 
                  message: `El email ya está registrado.` 
