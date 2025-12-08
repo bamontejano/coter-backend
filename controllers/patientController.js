@@ -1,7 +1,7 @@
 // controllers/patientController.js
 
 const { PrismaClient } = require('@prisma/client'); 
-const prisma = new PrismaClient(); // Usar la inicialización correcta
+const prisma = new PrismaClient(); // Inicialización correcta del cliente de Prisma
 
 // Función de utilidad para obtener el ID del usuario del token
 const getUserId = (req) => req.user.id || req.user.userId;
@@ -19,17 +19,18 @@ exports.createCheckin = async (req, res) => {
         return res.status(400).json({ message: 'El puntaje de ánimo (moodScore) es obligatorio para el check-in.' });
     }
 
-    // Validación básica del score (asumiendo que es de 1 a 5)
-    if (moodScore < 1 || moodScore > 5) {
-        return res.status(400).json({ message: 'El puntaje de ánimo debe estar entre 1 y 5.' });
+    // Validación y conversión a número para asegurar el rango
+    const numericMoodScore = Number(moodScore);
+    if (numericMoodScore < 1 || numericMoodScore > 5 || isNaN(numericMoodScore)) {
+        return res.status(400).json({ message: 'El puntaje de ánimo debe ser un número entre 1 y 5.' });
     }
 
     try {
         const newCheckin = await prisma.checkin.create({
             data: {
                 patientId: patientId,
-                // 🚨 CORRECCIÓN CRÍTICA: Cambiado de 'moodScore' a 'mood'
-                mood: parseInt(moodScore), 
+                // 🚨 CORRECCIÓN FINAL: Convertimos el número a String para cumplir con el schema.prisma
+                mood: String(numericMoodScore), 
                 notes: notes || null,
             }
         });
@@ -40,7 +41,6 @@ exports.createCheckin = async (req, res) => {
         });
 
     } catch (error) {
-        // Mejorar la salida de error para la DB
         console.error("Error al crear check-in:", error.message); 
         res.status(500).json({ 
             message: 'Error interno al registrar el check-in.',
@@ -60,7 +60,7 @@ exports.getAssignedGoals = async (req, res) => {
         // Obtenemos todas las metas donde este usuario es el paciente
         const goals = await prisma.goal.findMany({
             where: { patientId: patientId },
-            // Mantenemos la lógica de ordenación que ya probamos
+            // Mantenemos la lógica de ordenación
             orderBy: [
                 { dueDate: 'asc' }, 
                 { createdAt: 'desc' }
