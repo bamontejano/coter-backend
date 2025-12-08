@@ -13,11 +13,13 @@ const prisma = new PrismaClient();
 
 // Función helper para generar el token JWT
 const signToken = id => {
-    // Nota: Es mejor usar las variables de entorno para las opciones de JWT.
-    return jwt.sign({ id }, process.env.JWT_SECRET || 'mi_secreto_dev_temporal', {
-        expiresIn: process.env.JWT_EXPIRES_IN || '90d'
+    // 🚨 CAMBIO CLAVE: Usar un valor de emergencia si la variable de entorno falta
+    const secret = process.env.JWT_SECRET || 'ESTE_SECRETO_DEBE_SER_REEMPLAZADO_EN_PRODUCCION';
+    const expiresIn = process.env.JWT_EXPIRES_IN || '90d';
+    
+    return jwt.sign({ id }, secret, {
+        expiresIn: expiresIn
     });
-};
 
 // =========================================================================
 // 1. REGISTRO DE USUARIO (POST /api/auth/register)
