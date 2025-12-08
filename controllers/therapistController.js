@@ -1,12 +1,11 @@
 // controllers/therapistController.js
 
-// ⚠️ Asegúrate de que esta ruta sea correcta para tu cliente de Prisma.
-// Asumo que tienes un archivo que exporta el cliente (ej: ../prismaClient.js)
-const prisma = require('../prismaClient'); 
+// 🚨 CORRECCIÓN CRÍTICA: Importación directa del cliente de Prisma para evitar el error 'MODULE_NOT_FOUND' en Render
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient(); 
 
 // =========================================================================
 // 1. ASIGNAR PACIENTE (POST /api/therapist/assign)
-// Lógica que utiliza la tabla PatientTherapist
 // =========================================================================
 exports.assignPatient = async (req, res) => {
     const { patientEmail } = req.body; 
@@ -146,7 +145,6 @@ exports.getPatientProfile = async (req, res) => {
                 id: true,
                 firstName: true,
                 email: true,
-                // Puedes incluir más datos aquí
             }
         });
 
@@ -167,7 +165,6 @@ exports.getPatientProfile = async (req, res) => {
 
 // =========================================================================
 // 4. CREAR META (POST /api/therapist/goals)
-// Asume que el modelo 'Goal' existe en tu schema.prisma
 // =========================================================================
 exports.createGoal = async (req, res) => {
     const therapistId = req.user.id;
@@ -181,7 +178,7 @@ exports.createGoal = async (req, res) => {
                 target,
                 patientId: patientId,
                 therapistId: therapistId,
-                status: 'ACTIVE', // Estado inicial por defecto
+                status: 'ACTIVE',
             }
         });
 
@@ -207,7 +204,7 @@ exports.getPatientGoals = async (req, res) => {
         const goals = await prisma.goal.findMany({
             where: {
                 patientId: patientId,
-                therapistId: therapistId, // Filtra por metas asignadas por el terapeuta logueado
+                therapistId: therapistId,
             },
             orderBy: { createdAt: 'desc' }
         });
@@ -230,13 +227,13 @@ exports.getPatientGoals = async (req, res) => {
 exports.updateGoal = async (req, res) => {
     const { goalId } = req.params;
     const therapistId = req.user.id;
-    const updateData = req.body; // { description, metric, target, status, etc. }
+    const updateData = req.body;
 
     try {
         const updatedGoal = await prisma.goal.update({
             where: { 
                 id: goalId,
-                therapistId: therapistId // Solo permite actualizar si la meta fue creada por este terapeuta
+                therapistId: therapistId 
             },
             data: updateData,
         });
@@ -248,7 +245,6 @@ exports.updateGoal = async (req, res) => {
 
     } catch (error) {
         console.error("Error al actualizar la meta:", error);
-        // P2025 es el código de error de Prisma para 'registro no encontrado'
         if (error.code === 'P2025') {
             return res.status(404).json({ message: "Meta no encontrada o no tienes permiso para modificarla." });
         }
