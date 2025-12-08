@@ -1,6 +1,8 @@
 // controllers/patientController.js
 
-const prisma = require('../utils/prismaClient'); 
+const { PrismaClient } = require('@prisma/client'); 
+const prisma = new PrismaClient(); // Usar la inicialización correcta
+
 // Función de utilidad para obtener el ID del usuario del token
 const getUserId = (req) => req.user.id || req.user.userId;
 
@@ -26,9 +28,9 @@ exports.createCheckin = async (req, res) => {
         const newCheckin = await prisma.checkin.create({
             data: {
                 patientId: patientId,
-                moodScore: parseInt(moodScore), // Aseguramos que sea Integer
+                // 🚨 CORRECCIÓN CRÍTICA: Cambiado de 'moodScore' a 'mood'
+                mood: parseInt(moodScore), 
                 notes: notes || null,
-                // date y timestamps por defecto usan now()
             }
         });
 
@@ -38,7 +40,8 @@ exports.createCheckin = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Error al crear check-in:", error.message);
+        // Mejorar la salida de error para la DB
+        console.error("Error al crear check-in:", error.message); 
         res.status(500).json({ 
             message: 'Error interno al registrar el check-in.',
             details: error.message
