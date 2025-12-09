@@ -297,11 +297,14 @@
             const data = await response.json();
 
             if (response.ok) {
-                // El backend devuelve 'data' con el objeto 'user' dentro
-                const userData = data.user; // <-- Corrección: El login devuelve la data en la raíz del JSON, no anidada en 'data.data.user'
+                // 🚨 CORRECCIÓN CLAVE: El backend envía el rol, userId, etc., en la raíz de 'data'.
+                // NO están anidados en 'data.user'. Usamos 'data' directamente como userData.
+                const userData = data; 
+                
                 localStorage.setItem('token', data.token);
-                localStorage.setItem('userRole', userData.role);
+                localStorage.setItem('userRole', userData.role); // <-- userData.role ahora funciona
                 localStorage.setItem('userFirstName', userData.firstName);
+                
                 checkAuthentication();
             } else {
                 displayAuthMessage(`Error: ${data.message || 'Credenciales inválidas.'}`);
