@@ -5,7 +5,7 @@ require('dotenv').config();
 
 const express = require('express');
 const cors = require('cors');
-const path = require('path'); // 🚨 CORRECCIÓN CRÍTICA: Importación de la librería 'path'
+const path = require('path'); // CRÍTICO: Asegurarse de que 'path' está importado
 
 // Importación de rutas
 const authRoutes = require('./routes/authRoutes');
@@ -22,7 +22,7 @@ const app = express();
 // MIDDLEWARE GLOBAL
 // ------------------------------
 
-// Habilitar CORS para permitir que el frontend acceda al backend
+// Habilitar CORS
 const corsOptions = {
     origin: '*', 
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
@@ -34,27 +34,26 @@ app.use(cors(corsOptions));
 // Middleware para parsear bodies de requests como JSON
 app.use(express.json());
 
-// ------------------------------
-// CONFIGURACIÓN PARA SERVIR EL FRONTEND (Archivos Estáticos)
-// ------------------------------
+// -------------------------------------------------------------
+// 1. CONFIGURACIÓN PARA SERVIR EL FRONTEND (Archivos Estáticos) ⬅️ ESTO DEBE IR PRIMERO
+// -------------------------------------------------------------
 
-// 1. Servir todos los archivos estáticos (incluyendo index.html, therapist.html, CSS, JS) 
-// desde la raíz del proyecto.
+// Servir todos los archivos estáticos (CSS, JS, imágenes) desde la raíz del proyecto.
 app.use(express.static(path.join(__dirname, '/'))); 
 
-// 2. Definir explícitamente la ruta raíz '/'
-// Esta ruta garantiza que al acceder a https://tu-dominio.onrender.com/ se envíe index.html.
+// Definir explícitamente la ruta raíz '/'
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html')); 
 });
 
-// 3. Ruta necesaria para la redirección del terapeuta desde index.html
+// Ruta necesaria para la redirección del terapeuta
 app.get('/therapist.html', (req, res) => {
     res.sendFile(path.join(__dirname, 'therapist.html'));
 });
 
+
 // ------------------------------
-// RUTAS API
+// 2. RUTAS API
 // ------------------------------
 
 // Rutas de Autenticación (Registro, Login)
@@ -66,17 +65,9 @@ app.use('/api/therapist', therapistRoutes);
 // Rutas del Paciente (Check-ins, Metas)
 app.use('/api/patient', patientRoutes); 
 
-// ------------------------------
-// Manejo de rutas no encontradas (404)
-// ------------------------------
-
-// Este middleware captura cualquier otra ruta que no sea estática o API
-app.use((req, res, next) => {
-    res.status(404).json({ message: 'Not Found - La ruta solicitada no existe en la API.' });
-});
 
 // ------------------------------
-// INICIO DEL SERVIDOR
+// 3. INICIO DEL SERVIDOR
 // ------------------------------
 
 app.listen(PORT, () => {
