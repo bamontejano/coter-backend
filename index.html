@@ -243,7 +243,7 @@
     </div>
 
 </div> <script>
-    // USAMOS RUTA RELATIVA PARA EVITAR ERRORES CORS
+    // 1. ARREGLO DE RUTA: USAMOS RUTA RELATIVA PARA EVITAR ERRORES CORS
     const API_BASE_URL = '/api'; 
     
     let isRegisterMode = false;
@@ -272,6 +272,7 @@
         checkAuthentication();
     }
 
+    // 2. ARREGLO DE LOGIN: LECTURA CORRECTA DE LA RESPUESTA Y MANEJO DE ERRORES
     async function handleAuth() {
         const email = document.getElementById('authEmail').value;
         const password = document.getElementById('authPassword').value;
@@ -279,13 +280,17 @@
         const lastName = document.getElementById('authLastName').value;
         const role = document.getElementById('authRole').value;
 
-        if (!email || !password) {
-            displayAuthMessage("El email y la contraseña son obligatorios.");
+        // Revisión de campos obligatorios
+        if (!email || !password || (isRegisterMode && (!firstName || !lastName))) {
+            displayAuthMessage("Faltan campos obligatorios para Iniciar Sesión o Registrarse.");
             return;
         }
 
         const endpoint = isRegisterMode ? '/auth/register' : '/auth/login';
         const body = isRegisterMode ? { firstName, lastName, email, password, role } : { email, password };
+
+        // Limpiamos el mensaje de error antes de intentar el login
+        document.getElementById('authMessage').style.display = 'none';
 
         try {
             const response = await fetch(`${API_BASE_URL}${endpoint}`, {
@@ -294,23 +299,25 @@
                 body: JSON.stringify(body)
             });
 
+            // Diagnóstico
+            console.log('Respuesta de Autenticación - Estado:', response.status);
+
             const data = await response.json();
 
             if (response.ok) {
-                // 🚨 CORRECCIÓN CLAVE: El backend envía el rol, userId, etc., en la raíz de 'data'.
-                // NO están anidados en 'data.user'. Usamos 'data' directamente como userData.
+                // ✅ CORRECCIÓN: Leemos 'data' directamente del body de la respuesta
                 const userData = data; 
-                
                 localStorage.setItem('token', data.token);
-                localStorage.setItem('userRole', userData.role); // <-- userData.role ahora funciona
+                localStorage.setItem('userRole', userData.role); 
                 localStorage.setItem('userFirstName', userData.firstName);
                 
                 checkAuthentication();
             } else {
-                displayAuthMessage(`Error: ${data.message || 'Credenciales inválidas.'}`);
+                // Muestra el mensaje de error del servidor (ej: "Credenciales incorrectas")
+                displayAuthMessage(`Error: ${data.message || 'Credenciales inválidas. Verifique el email/contraseña.'}`);
             }
         } catch (error) {
-            displayAuthMessage('Fallo en la conexión. Por favor, asegúrate de que el servidor esté activo.');
+            displayAuthMessage('Fallo en la conexión. Por favor, verifica tu conexión a internet.');
             console.error("Error al intentar login/registro:", error);
         }
     }
@@ -413,7 +420,7 @@
         });
     }
 
-    // Función para renderizar metas
+    // 3. ARREGLO DE PANTALLA EN BLANCO: Corrección de sintaxis
     async function renderAssignedGoals(goals) {
         const container = document.getElementById('assignedGoalsContainer');
         const noGoals = document.getElementById('noGoalsMessage');
@@ -426,7 +433,7 @@
 
         noGoals.style.display = 'none';
 
-        // 🚨 BLOQUE CORREGIDO: Inclusión de los cierres de HTML y la llamada a .join('')
+        // Bloque de código corregido
         container.innerHTML = goals.map(g => `
             <div class="goal-card">
                 <strong>${g.name}</strong>
