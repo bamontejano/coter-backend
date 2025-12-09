@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coter - Plataforma Terapéutica</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        /* Estilos CSS simplificados para la estructura */
+        :root {
+            --primary-color: #3498db; 
+            --secondary-color: #e74c3c; 
+            --success-color: #2ecc71;
+            --warning-color: #f39c12;
+            --dark-color: #2c3e50;
+            --light-color: #ecf0f1;
+            --text-color: #333;
+        }
+        body { font-family: sans-serif; margin: 0; background-color: var(--light-color); color: var(--text-color); }
+        .app-container { max-width: 450px; margin: 40px auto; background-color: white; border-radius: 12px; box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1); overflow: hidden; min-height: 600px; padding: 20px; }
+        .nav-bar { display: flex; justify-content: space-around; background-color: var(--dark-color); padding: 10px 0; }
+        .nav-bar button { background: none; border: none; color: white; padding: 10px 15px; cursor: pointer; font-size: 16px; }
+        .nav-bar button:hover { background-color: rgba(255, 255, 255, 0.1); }
+        .screen { display: none; padding: 20px 0; }
+        .current-screen { display: block; }
+        .goal-card { background-color: var(--light-color); border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 8px; }
+        .status-completed { color: var(--success-color); font-weight: bold; }
+        .status-pending { color: var(--warning-color); font-weight: bold; }
+        .error-message { color: var(--secondary-color); font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="app-container" id="authScreen">
+    <h2>Bienvenido a Coter</h2>
+    <div id="authContent">
+        </div>
+    <button onclick="showAuthRole('PATIENT')">Soy Paciente</button>
+    <button onclick="showAuthRole('THERAPIST')">Soy Terapeuta</button>
+</div>
+
+<div class="app-container" id="patientAppInterface" style="display: none;">
+    <header style="background-color: var(--primary-color); color: white; padding: 15px; border-radius: 8px 8px 0 0;">
+        <h1 id="patientHeaderGreeting">Hola!</h1>
+        <small>Panel del Paciente</small>
+    </header>
+
+    <nav class="nav-bar">
+        <button onclick="showScreen('dashboard')">Inicio</button>
+        <button onclick="showScreen('goals')">Metas</button>
+        <button onclick="showScreen('checkin')">Check-in</button>
+        <button onclick="logoutUser()">Salir</button>
+    </nav>
+
+    <section id="dashboard" class="screen current-screen">
+        <h3>Tu Progreso (Dashboard)</h3>
+        <p>Aquí se mostrará un resumen de tu ánimo y metas.</p>
+        <canvas id="moodChart" width="400" height="200"></canvas>
+    </section>
+
+    <section id="goals" class="screen">
+        <h3>Metas Asignadas</h3>
+        <div id="goalsList">
+            <p>Cargando metas...</p>
+        </div>
+    </section>
+
+    <section id="checkin" class="screen">
+        <h3>Registro de Ánimo (Check-in)</h3>
+        <p>¿Cómo te sientes hoy?</p>
+        <form id="checkinForm" onsubmit="event.preventDefault(); submitCheckin();">
+            <label for="moodScore">Puntuación (1 a 5):</label>
+            <input type="number" id="moodScore" min="1" max="5" required style="width: 100%; padding: 8px; margin-bottom: 10px; box-sizing: border-box;">
+
+            <label for="notes">Notas (Opcional):</label>
+            <textarea id="notes" rows="3" style="width: 100%; padding: 8px; margin-bottom: 15px; box-sizing: border-box;"></textarea>
+
+            <button type="submit" style="background-color: var(--primary-color); color: white; padding: 10px; border: none; border-radius: 4px; cursor: pointer;">Registrar Check-in</button>
+            <p id="checkinMessage" style="margin-top: 10px;"></p>
+        </form>
+    </section>
+
+</div>
+
+<script>
+    // 🚨 ELIMINAMOS la variable API_URL y usamos rutas relativas
+    
+    // ----------------------------------------------------------------------
+    // AUTENTICACIÓN Y NAVEGACIÓN
+    // ----------------------------------------------------------------------
+
+    function showAuthRole(role) {
+        // Lógica para mostrar formularios de Login/Registro (omitida por brevedad)
+        const authContent = document.getElementById('authContent');
+        authContent.innerHTML = `
+            <h3>${role === 'PATIENT' ? 'Inicio de Sesión (Paciente)' : 'Inicio de Sesión (Terapeuta)'}</h3>
+            <form onsubmit="event.preventDefault(); loginUser('${role}');">
+                <input type="email" id="${role.toLowerCase()}Email" placeholder="Email" required><br>
+                <input type="password" id="${role.toLowerCase()}Password" placeholder="Contraseña" required><br>
+                <button type="submit">Iniciar Sesión</button>
+            </form>
+            <p style="margin-top: 10px;"><a href="#" onclick="showRegisterForm('${role}')">Registrarse</a></p>
+        `;
+        // Implementar showRegisterForm para un formulario de registro funcional.
+    }
+
+    async function loginUser(role) {
+        const email = document.getElementById(`${role.toLowerCase()}Email`).value;
+        const password = document.getElementById(`${role.toLowerCase()}Password`).value;
+
+        try {
+            // 🚨 CORRECCIÓN: Usamos la ruta relativa, lo que funciona en Render
+            const response = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                localStorage.setItem('token', data.token);
+                localStorage.setItem('userRole', data.data.user.role);
+                localStorage.setItem('userFirstName', data.data.user.firstName);
+                checkAuthentication(); // Recarga la interfaz
+            } else {
+                alert(`Error al iniciar sesión: ${data.message || 'Credenciales inválidas.'}`);
+            }
+        } catch (error) {
+            // Este alert solía salir por el error de CORS que ya corregimos con la ruta relativa.
+            alert('Fallo en la conexión. Por favor, asegúrate de que el servidor (Render) esté activo.');
+            console.error("Error al intentar login:", error);
+        }
+    }
+    
+    function logoutUser() {
+        localStorage.removeItem('token');
+        localStorage.removeItem('userRole');
+        localStorage.removeItem('userFirstName');
+        window.location.reload(); 
+    }
+
+    function showScreen(screenId) {
+        document.querySelectorAll('.screen').forEach(screen => {
+            screen.classList.remove('current-screen');
+        });
+        document.getElementById(screenId).classList.add('current-screen');
+
+        if (screenId === 'goals') {
+            loadPatientGoals(); 
+        } else if (screenId === 'dashboard') {
+            // Aquí se llamaría a loadDashboardData()
+            console.log("Cargando datos del dashboard...");
+        }
+    }
+
+    // ----------------------------------------------------------------------
+    // LÓGICA DE CHECK-IN 
+    // ----------------------------------------------------------------------
+
+    async function submitCheckin() {
+        const moodScore = document.getElementById('moodScore').value;
+        const notes = document.getElementById('notes').value;
+        const checkinMessage = document.getElementById('checkinMessage');
+        const token = localStorage.getItem('token');
+
+        checkinMessage.textContent = 'Registrando...';
+        checkinMessage.style.color = 'var(--dark-color)';
+
+        try {
+            const response = await fetch('/api/patient/checkin', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}` 
+                },
+                body: JSON.stringify({ moodScore, notes })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                checkinMessage.textContent = 'Check-in registrado exitosamente.';
+                checkinMessage.style.color = 'var(--success-color)';
+                document.getElementById('checkinForm').reset();
+            } else {
+                checkinMessage.textContent = `Error: ${data.message || 'Error desconocido'}`;
+                checkinMessage.style.color = 'var(--secondary-color)';
+            }
+        } catch (error) {
+            checkinMessage.textContent = '¡FALLO EN LA CONEXIÓN! Error al conectar con el servidor.';
+            checkinMessage.style.color = 'var(--secondary-color)';
+            console.error("Error al enviar check-in:", error);
+        }
+    }
+    
+    // ----------------------------------------------------------------------
+    // LÓGICA DE METAS (Para que no fallen las metas después)
+    // ----------------------------------------------------------------------
+
+    let allPatientGoals = []; 
+
+    async function loadPatientGoals() {
+        const goalsListElement = document.getElementById('goalsList');
+        goalsListElement.innerHTML = '<h2>Cargando metas...</h2>';
+        const token = localStorage.getItem('token');
+
+        if (!token) {
+            goalsListElement.innerHTML = '<p class="error-message">Error: No autenticado. Por favor, reinicie sesión.</p>';
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/patient/goals', {
+                method: 'GET', 
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(`¡FALLO EN LA CONEXIÓN! Status ${response.status}. Detalle: ${errorData.message || response.statusText}`);
+            }
+
+            allPatientGoals = await response.json();
+
+            renderPatientGoals(allPatientGoals);
+
+        } catch (error) {
+            console.error("Error al cargar metas:", error);
+            goalsListElement.innerHTML = `<p class="error-message">Error al cargar metas: ${error.message}</p>`;
+        }
+    }
+
+    function renderPatientGoals(goals) {
+        const goalsListElement = document.getElementById('goalsList');
+        if (goals.length === 0) {
+            goalsListElement.innerHTML = '<p>No tienes metas asignadas aún.</p>';
+            return;
+        }
+
+        goalsListElement.innerHTML = goals.map(g => {
+            const statusClass = g.status === 'COMPLETED' ? 'status-completed' : 'status-pending';
+            return `
+                <div class="goal-card">
+                    <strong>${g.title}</strong>
+                    <span class="status-badge ${statusClass}" style="float: right;">${g.status.replace('_', ' ')}</span>
+                    <p>${g.description || 'Sin descripción.'}</p>
+                    <small>Límite: ${new Date(g.dueDate).toLocaleDateString()}</small>
+                    ${g.metric && g.target ? `<p style="margin: 5px 0 0 0;"><small>Objetivo: ${g.target} ${g.metric}</small></p>` : ''}
+                </div>
+            `;
+        }).join('');
+    }
+    
+    // ----------------------------------------------------------------------
+    // INICIALIZACIÓN
+    // ----------------------------------------------------------------------
+    function checkAuthentication() {
+        const token = localStorage.getItem('token');
+        const role = localStorage.getItem('userRole');
+        const firstName = localStorage.getItem('userFirstName');
+        
+        document.getElementById('authScreen').style.display = 'none';
+        document.getElementById('patientAppInterface').style.display = 'none';
+
+        if (token) {
+            if (role === 'PATIENT') {
+                document.getElementById('patientAppInterface').style.display = 'block';
+                document.getElementById('patientHeaderGreeting').textContent = `Hola, ${firstName || 'Paciente'}!`;
+                showScreen('dashboard'); 
+            } else if (role === 'THERAPIST') {
+                window.location.href = 'therapist.html'; 
+            } else {
+                 logoutUser();
+            }
+
+        } else {
+            document.getElementById('authScreen').style.display = 'block';
+            showAuthRole('PATIENT'); 
+        }
+    }
+    
+    window.onload = checkAuthentication;
+
+</script>
+</body>
+</html>
