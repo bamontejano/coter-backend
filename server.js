@@ -33,6 +33,19 @@ app.use(cors(corsOptions));
 // Middleware para parsear bodies de requests como JSON
 app.use(express.json());
 
+// 1. Servir archivos estáticos (si tienes una carpeta 'public')
+// const path = require('path');
+// app.use(express.static(path.join(__dirname, 'public'))); 
+
+// 2. Servir index.html en la ruta raíz
+app.get('/', (req, res) => {
+    // Asegúrate de que la ruta a index.html sea correcta. 
+    // Si index.html está en la raíz de tu proyecto, usa:
+    res.sendFile(path.join(__dirname, 'index.html')); 
+    // Si está en 'public', usa:
+    // res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 // ------------------------------
 // RUTAS
 // ------------------------------
