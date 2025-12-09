@@ -205,7 +205,11 @@
 
         <div id="dashboardScreen">
             
-            <div id="checkinModal">
+            <button class="btn-primary" style="margin-bottom: 20px;" onclick="toggleCheckinForm()">
+                Registrar Nuevo Check-in
+            </button>
+
+            <div id="checkinModal" style="display: none;"> 
                 <p class="mood-range-label">¿Cómo te sientes hoy? (1 es muy bajo, 10 es muy alto)</p>
                 <input type="range" id="moodScore" min="1" max="10" value="5" style="width: 100%;">
                 <div class="mood-scale">
@@ -239,8 +243,8 @@
     </div>
 
 </div> <script>
-    // ⚠️ REEMPLAZA ESTA URL CON LA DIRECCIÓN REAL DE TU BACKEND DE RENDER
-    const API_BASE_URL = 'https://coter-backend.onrender.com/api'; 
+    // 🚨 CORRECCIÓN: USAMOS RUTA RELATIVA PARA EVITAR ERRORES CORS
+    const API_BASE_URL = '/api'; 
     
     let isRegisterMode = false;
     let moodChartInstance = null;
@@ -293,7 +297,6 @@
             const data = await response.json();
 
             if (response.ok) {
-                // 🚨 CORRECCIÓN: Ahora el backend envía la estructura data.user
                 const userData = data.data.user; 
                 localStorage.setItem('token', data.token);
                 localStorage.setItem('userRole', userData.role);
@@ -303,7 +306,6 @@
                 displayAuthMessage(`Error: ${data.message || 'Credenciales inválidas.'}`);
             }
         } catch (error) {
-            // Este catch se ejecuta si hay un error de red o el servidor crashea (Status 500)
             displayAuthMessage('Fallo en la conexión. Por favor, asegúrate de que el servidor esté activo.');
             console.error("Error al intentar login/registro:", error);
         }
@@ -318,12 +320,25 @@
 
     // --- LÓGICA DE CHECK-IN Y METAS ---
 
+    // 🚨 NUEVA FUNCIÓN: Muestra u oculta el formulario de Check-in
+    function toggleCheckinForm() {
+        const form = document.getElementById('checkinModal');
+        const button = document.querySelector('#dashboardScreen > .btn-primary');
+        if (form.style.display === 'none' || form.style.display === '') {
+            form.style.display = 'block';
+            button.textContent = 'Ocultar Check-in';
+        } else {
+            form.style.display = 'none';
+            button.textContent = 'Registrar Nuevo Check-in';
+        }
+    }
+
     async function submitCheckin() {
         const moodScore = document.getElementById('moodScore').value;
         const notes = document.getElementById('checkinNotes').value;
         const token = localStorage.getItem('token');
 
-        // 🚨 CORRECCIÓN DE VALIDACIÓN: Rango de 1 a 10
+        // Validación: Rango de 1 a 10
         if (!moodScore || parseInt(moodScore) < 1 || parseInt(moodScore) > 10) {
             alert('El puntaje de ánimo debe ser entre 1 y 10.');
             return;
@@ -341,11 +356,16 @@
 
             if (response.ok) {
                 alert('¡Check-in registrado con éxito!');
+                // 🚨 Ocultar formulario después del éxito
+                document.getElementById('checkinModal').style.display = 'none'; 
+                document.querySelector('#dashboardScreen > .btn-primary').textContent = 'Registrar Nuevo Check-in';
+
                 // Recargar metas y gráfico después del check-in
                 loadData();
             } else {
                 const data = await response.json();
-                alert(`Error al registrar check-in: ${data.message || 'Verifica la conexión.'}`);
+                // 🚨 Alerta corregida: Muestra el mensaje de error del backend
+                alert(`Error al registrar check-in: ${data.message || 'Error interno al registrar el check-in.'}`);
             }
         } catch (error) {
             console.error("Error en submitCheckin:", error);
@@ -370,9 +390,9 @@
                 datasets: [{
                     label: 'Puntaje de Ánimo',
                     data: scores,
-                    borderColor: var_primary_color,
+                    borderColor: 'var(--primary-color)',
                     tension: 0.1,
-                    backgroundColor: var_primary_light + '33', /* Con opacidad */
+                    backgroundColor: 'var(--primary-light)' + '33',
                     fill: true,
                 }]
             },
@@ -381,7 +401,6 @@
                 scales: {
                     y: {
                         beginAtZero: true,
-                        // 🚨 CORRECCIÓN: Escala Y hasta 10
                         max: 10, 
                         min: 1,
                         ticks: { stepSize: 1 }
@@ -412,75 +431,3 @@
                 <strong>${g.name}</strong>
                 <p style="margin: 5px 0 10px 0; font-size: 0.9em;">${g.description}</p>
                 <span class="goal-metric">Objetivo: ${g.target} ${g.metric || ''}</span>
-                <span class="goal-due-date">Fecha Límite: ${new Date(g.dueDate).toLocaleDateString()}</span>
-            </div>
-        `).join('');
-    }
-
-    // Carga inicial de datos (Gráfico y Metas)
-    async function loadData() {
-        const token = localStorage.getItem('token');
-        if (!token) return;
-
-        try {
-            // Placeholder: Cargar Check-ins y Metas
-            const goalsResponse = await fetch(`${API_BASE_URL}/patient/goals`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-
-            // Usamos un endpoint imaginario para los checkins para el gráfico
-            // Si el backend no tiene un endpoint para obtener checkins, esta parte fallará.
-            // Para la demo, asumiremos un endpoint.
-            const checkinsResponse = await fetch(`${API_BASE_URL}/patient/checkins`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            
-            if (goalsResponse.ok) {
-                const goals = await goalsResponse.json();
-                renderAssignedGoals(goals);
-            }
-
-            if (checkinsResponse.ok) {
-                const checkins = await checkinsResponse.json();
-                renderMoodChart(checkins);
-            } else {
-                 // Si el endpoint de checkins no existe, renderizamos un gráfico vacío.
-                 renderMoodChart([]);
-            }
-
-        } catch (error) {
-            console.error("Error al cargar datos:", error);
-            // Esto podría ser un 401 si el token es viejo.
-            // logoutUser(); 
-        }
-    }
-
-
-    // Inicialización
-    function checkAuthentication() {
-        const token = localStorage.getItem('token');
-        const role = localStorage.getItem('userRole');
-        const firstName = localStorage.getItem('userFirstName');
-        
-        document.getElementById('authScreen').style.display = 'none';
-        document.getElementById('patientAppInterface').style.display = 'none';
-
-        if (token) {
-            if (role === 'PATIENT') {
-                document.getElementById('patientAppInterface').style.display = 'block';
-                document.getElementById('patientHeaderGreeting').textContent = `Hola, ${firstName || 'Paciente'}!`;
-                loadData(); // Carga los datos al iniciar sesión
-            } else if (role === 'THERAPIST') {
-                window.location.href = 'therapist.html'; 
-            } else {
-                 logoutUser();
-            }
-        } else {
-            document.getElementById('authScreen').style.display = 'block';
-        }
-    }
-    
-    window.onload = checkAuthentication;
-</script>
-</body>
-</html>

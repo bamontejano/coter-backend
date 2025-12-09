@@ -1,8 +1,6 @@
 // controllers/patientController.js
 
-const { PrismaClient } = require('@prisma/client'); 
-const prisma = new PrismaClient(); // Inicialización correcta del cliente de Prisma
-
+const prisma = require('../utils/prismaClient'); 
 // Función de utilidad para obtener el ID del usuario del token
 const getUserId = (req) => req.user.id || req.user.userId;
 
@@ -19,17 +17,16 @@ exports.createCheckin = async (req, res) => {
         return res.status(400).json({ message: 'El puntaje de ánimo (moodScore) es obligatorio para el check-in.' });
     }
 
-    // Validación básica del score (AHORA DE 1 A 10)
-    if (moodScore < 1 || moodScore > 10) { // 🚨 CAMBIO AQUÍ
-        return res.status(400).json({ message: 'El puntaje de ánimo debe estar entre 1 y 10.' }); // 🚨 Y AQUÍ
+    // 🚨 CORRECCIÓN CRÍTICA: RANGO ACTUALIZADO DE 1 A 10
+    if (moodScore < 1 || moodScore > 10) {
+        return res.status(400).json({ message: 'El puntaje de ánimo debe estar entre 1 y 10.' });
     }
 
     try {
         const newCheckin = await prisma.checkin.create({
             data: {
                 patientId: patientId,
-                // 🚨 CORRECCIÓN FINAL: Convertimos el número a String para cumplir con el schema.prisma
-                mood: String(numericMoodScore), 
+                moodScore: parseInt(moodScore), // Aseguramos que sea Integer
                 notes: notes || null,
             }
         });
@@ -40,7 +37,7 @@ exports.createCheckin = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Error al crear check-in:", error.message); 
+        console.error("Error al crear check-in:", error.message);
         res.status(500).json({ 
             message: 'Error interno al registrar el check-in.',
             details: error.message
@@ -59,7 +56,7 @@ exports.getAssignedGoals = async (req, res) => {
         // Obtenemos todas las metas donde este usuario es el paciente
         const goals = await prisma.goal.findMany({
             where: { patientId: patientId },
-            // Mantenemos la lógica de ordenación
+            // Mantenemos la lógica de ordenación que ya probamos
             orderBy: [
                 { dueDate: 'asc' }, 
                 { createdAt: 'desc' }
