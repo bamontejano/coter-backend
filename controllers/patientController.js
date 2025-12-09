@@ -19,10 +19,9 @@ exports.createCheckin = async (req, res) => {
         return res.status(400).json({ message: 'El puntaje de ánimo (moodScore) es obligatorio para el check-in.' });
     }
 
-    // Validación y conversión a número para asegurar el rango
-    const numericMoodScore = Number(moodScore);
-    if (numericMoodScore < 1 || numericMoodScore > 5 || isNaN(numericMoodScore)) {
-        return res.status(400).json({ message: 'El puntaje de ánimo debe ser un número entre 1 y 5.' });
+    // Validación básica del score (AHORA DE 1 A 10)
+    if (moodScore < 1 || moodScore > 10) { // 🚨 CAMBIO AQUÍ
+        return res.status(400).json({ message: 'El puntaje de ánimo debe estar entre 1 y 10.' }); // 🚨 Y AQUÍ
     }
 
     try {
