@@ -5,11 +5,12 @@ require('dotenv').config();
 
 const express = require('express');
 const cors = require('cors');
+const path = require('path'); // 🚨 CORRECCIÓN CRÍTICA: Librería 'path' importada
 
 // Importación de rutas
 const authRoutes = require('./routes/authRoutes');
 const therapistRoutes = require('./routes/therapistRoutes');
-const patientRoutes = require('./routes/patientRoutes'); // ⬅️ IMPORTACIÓN DEL PACIENTE
+const patientRoutes = require('./routes/patientRoutes'); 
 
 // ⚠️ CRÍTICO: Usar process.env.PORT (asignado por Render) como prioridad.
 const PORT = process.env.PORT || 10000; 
@@ -33,29 +34,9 @@ app.use(cors(corsOptions));
 // Middleware para parsear bodies de requests como JSON
 app.use(express.json());
 
-// 1. Servir archivos estáticos (si tienes una carpeta 'public')
-// const path = require('path');
-// app.use(express.static(path.join(__dirname, 'public'))); 
-
-// 2. Servir index.html en la ruta raíz
-app.get('/', (req, res) => {
-    // Asegúrate de que la ruta a index.html sea correcta. 
-    // Si index.html está en la raíz de tu proyecto, usa:
-    res.sendFile(path.join(__dirname, 'index.html')); 
-    // Si está en 'public', usa:
-    // res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
 // ------------------------------
-// RUTAS
+// RUTAS API
 // ------------------------------
-
-// Ruta principal de prueba
-app.get('/', (req, res) => {
-    res.status(200).json({ 
-        message: 'Bienvenido a la API Coter. Accede a /api/auth/register o /api/therapist/patients' 
-    });
-});
 
 // Rutas de Autenticación (Registro, Login)
 app.use('/api/auth', authRoutes);
@@ -63,11 +44,28 @@ app.use('/api/auth', authRoutes);
 // Rutas del Terapeuta (Pacientes, Metas)
 app.use('/api/therapist', therapistRoutes);
 
-// Rutas del Paciente (Check-ins, Metas) ⬅️ USO DE LA NUEVA RUTA
+// Rutas del Paciente (Check-ins, Metas)
 app.use('/api/patient', patientRoutes); 
 
-// Manejo de rutas no encontradas (404)
+// ------------------------------
+// CONFIGURACIÓN PARA SERVIR EL FRONTEND
+// ------------------------------
+
+// 🚨 CORRECCIÓN 1: Eliminamos la ruta de prueba JSON duplicada.
+// 🚨 CORRECCIÓN 2: Esta ruta ahora se asegura de servir index.html correctamente
+// cuando el usuario acceda a la URL raíz (https://tu-dominio.onrender.com/)
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html')); 
+});
+
+// Ruta necesaria para la redirección del terapeuta desde index.html
+app.get('/therapist.html', (req, res) => {
+    res.sendFile(path.join(__dirname, 'therapist.html')); 
+});
+
+// Manejo de rutas no encontradas (404) - ¡Debe ir después de todas las rutas definidas!
 app.use((req, res, next) => {
+    // Si la ruta no es / o /therapist.html o /api/..., devuelve 404
     res.status(404).json({ message: 'Ruta no encontrada.' });
 });
 
