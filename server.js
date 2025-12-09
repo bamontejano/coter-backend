@@ -34,22 +34,13 @@ app.use(cors(corsOptions));
 // Middleware para parsear bodies de requests como JSON
 app.use(express.json());
 
-// -------------------------------------------------------------
-// 1. CONFIGURACIÓN PARA SERVIR EL FRONTEND (Archivos Estáticos) ⬅️ ESTO DEBE IR PRIMERO
-// -------------------------------------------------------------
+// --------------------------------------------------------------------------
+// 1. CONFIGURACIÓN PARA SERVIR EL FRONTEND (Archivos Estáticos) ⬅️ PRIMERO
+// --------------------------------------------------------------------------
 
-// Servir todos los archivos estáticos (CSS, JS, imágenes) desde la raíz del proyecto.
-app.use(express.static(path.join(__dirname, '/'))); 
-
-// Definir explícitamente la ruta raíz '/'
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html')); 
-});
-
-// Ruta necesaria para la redirección del terapeuta
-app.get('/therapist.html', (req, res) => {
-    res.sendFile(path.join(__dirname, 'therapist.html'));
-});
+// Servir todos los archivos estáticos (CSS, JS, imágenes, etc.) desde la raíz del proyecto.
+// Usamos path.resolve para garantizar la ruta absoluta al directorio en cualquier entorno.
+app.use(express.static(path.resolve(__dirname, './'))); 
 
 
 // ------------------------------
@@ -66,8 +57,19 @@ app.use('/api/therapist', therapistRoutes);
 app.use('/api/patient', patientRoutes); 
 
 
+// -------------------------------------------------------------------------
+// 3. RUTA CATCH-ALL O FALLBACK ⬅️ CRÍTICO PARA EL PROBLEMA DE PANTALLA EN BLANCO
+// -------------------------------------------------------------------------
+
+// Esta ruta debe ir al FINAL. Si ninguna ruta de API o archivo estático (como /index.html)
+// es encontrado, Express siempre intentará enviar el archivo index.html.
+app.get('*', (req, res) => {
+    res.sendFile(path.resolve(__dirname, 'index.html'));
+});
+
+
 // ------------------------------
-// 3. INICIO DEL SERVIDOR
+// 4. INICIO DEL SERVIDOR
 // ------------------------------
 
 app.listen(PORT, () => {
