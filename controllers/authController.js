@@ -6,13 +6,13 @@ const jwt = require('jsonwebtoken');
 
 const prisma = new PrismaClient();
 
-// 🚨 CORRECCIÓN 1: La función debe recibir el ID y el ROL
+// Función para firmar el Token Web JSON (JWT)
 const signToken = (id, role) => { 
     // Usar un valor de emergencia si JWT_SECRET no está definido en Render.
     const secret = process.env.JWT_SECRET || 'SECRETO_TEMPORAL_DEV_2025';
     const expiresIn = process.env.JWT_EXPIRES_IN || '90d';
     
-    // 🚨 CAMBIO CLAVE: Incluir el rol en el payload del JWT
+    // CAMBIO CLAVE: Incluir el rol en el payload del JWT
     return jwt.sign({ id, role }, secret, { 
         expiresIn: expiresIn
     });
@@ -29,69 +29,49 @@ exports.register = async (req, res) => {
     }
 
     if (role !== 'THERAPIST' && role !== 'PATIENT') {
-        return res.status(400).json({ message: "Rol no válido. Debe ser 'THERAPIST' o 'PATIENT'." });
+        return res.status(400).json({ message: "El rol debe ser 'THERAPIST' o 'PATIENT'." });
     }
     
-    if (password.length < 8) {
-        return res.status(400).json({ message: "La contraseña debe tener al menos 8 caracteres." });
-    }
-
     try {
+        // 1. Verificar si el email ya existe
         const existingUser = await prisma.user.findUnique({ where: { email } });
         if (existingUser) {
-            return res.status(409).json({ message: "Este email ya está registrado." });
+            return res.status(400).json({ message: "Este email ya está registrado." });
         }
 
-        // LÓGICA DE CÓDIGO DE INVITACIÓN (Solo Validación)
-        if (role === 'THERAPIST') {
-            if (!invitationCode) {
-                return res.status(400).json({ message: "El código de invitación es obligatorio para el registro de terapeutas." });
-            }
+        // 2. Hash de la contraseña
+        const hashedPassword = await bcrypt.hash(password, 12); 
 
-            const CORRECT_INVITE_CODE = process.env.THERAPIST_INVITE_CODE;
-            
-            if (!CORRECT_INVITE_CODE) {
-                 console.error("ERROR CRÍTICO: La variable THERAPIST_INVITE_CODE no está definida en Render.");
-                 return res.status(500).json({ message: "Error interno del servidor. Falta el código de invitación maestro." });
-            }
-
-            if (invitationCode !== CORRECT_INVITE_CODE) {
-                return res.status(403).json({ message: "Código de invitación no válido." });
-            }
-        } 
-        
-        const hashedPassword = await bcrypt.hash(password, 12);
-        
-        // Concatenar nombre y apellido
-        const fullName = `${firstName.trim()} ${lastName.trim()}`;
-
+        // 3. Crear el nuevo usuario
         const newUser = await prisma.user.create({
             data: {
-                firstName: fullName,
+                firstName,
+                lastName,
                 email,
                 password: hashedPassword,
                 role,
-            }
+            },
         });
 
-        // 🚨 CORRECCIÓN 2: Pasar el ROL a signToken
-        const token = signToken(newUser.id, newUser.role); 
+        // 4. Generar JWT
+        const token = signToken(newUser.id, newUser.role);
 
+        // 5. Enviar Respuesta Exitosa (Usando la estructura anidada)
         res.status(201).json({
             status: 'success',
             token,
-            userId: newUser.id,
-            firstName: newUser.firstName,
-            role: newUser.role,
+            message: "Registro exitoso.",
+            data: {
+                user: {
+                    id: newUser.id,
+                    firstName: newUser.firstName,
+                    email: newUser.email,
+                    role: newUser.role,
+                }
+            }
         });
 
     } catch (error) {
-        if (error.code === 'P2002') {
-             return res.status(409).json({ 
-                 message: `El email ya está registrado.` 
-             });
-        }
-        
         console.error("Error en el registro:", error);
         res.status(500).json({ message: "Error interno del servidor durante el registro." });
     }
@@ -117,20 +97,23 @@ exports.login = async (req, res) => {
         }
 
         // 3. Generar JWT
-        // 🚨 CORRECCIÓN 3: Pasar el ROL a signToken
         const token = signToken(user.id, user.role); 
 
-        // 4. Enviar Respuesta Exitosa
+        // 4. Enviar Respuesta Exitosa (🚨 CORRECCIÓN: Estructura anidada para el frontend)
         res.status(200).json({
             status: 'success',
             token,
-            userId: user.id,
-            firstName: user.firstName,
-            role: user.role,
+            data: { // <- ¡Aquí está la corrección!
+                user: { // <- Estructura esperada por index.html
+                    id: user.id,
+                    firstName: user.firstName,
+                    role: user.role,
+                }
+            }
         });
 
     } catch (error) {
         console.error("Error en el login:", error);
-        res.status(500).json({ message: "Error interno del servidor durante el inicio de sesión." });
+        res.status(500).json({ message: "Error interno del servidor durante el login." });
     }
 };
