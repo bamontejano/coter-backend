@@ -4,7 +4,7 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient(); 
 const jwt = require('jsonwebtoken');
 
-// Función helper para generar el token JWT (necesaria si la usas en authController)
+// Función helper para generar el token JWT (si se usa)
 const signToken = (id, role) => { 
     const secret = process.env.JWT_SECRET || 'SECRETO_DEV_2025';
     const expiresIn = process.env.JWT_EXPIRES_IN || '90d';
@@ -63,7 +63,7 @@ exports.assignPatient = async (req, res) => {
 // =========================================================================
 // 2. OBTENER PACIENTES ASIGNADOS (GET /api/therapist/patients)
 // =========================================================================
-exports.getPatients = async (req, res) => { // 🚨 ESTA ES LA FUNCIÓN CRÍTICA
+exports.getPatients = async (req, res) => {
     const therapistId = req.user.id; 
     
     try {
@@ -122,7 +122,7 @@ exports.getPatientProfile = async (req, res) => {
         res.status(200).json({ status: 'success', data: { patient } });
         
     } catch (error) {
-        console.error("Error al obtener perfil del paciente:", error.message);
+            console.error("Error al obtener perfil del paciente:", error.message);
         res.status(500).json({ message: "Error interno del servidor." });
     }
 };
