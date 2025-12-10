@@ -1,11 +1,8 @@
-// middleware/auth.js (FINAL)
+// middleware/auth.js (FINAL ROBUSTO)
 
 const jwt = require('jsonwebtoken');
 const { PrismaClient } = require('@prisma/client');
-
-// Asegurar un fallback para el secreto
 const JWT_SECRET = process.env.JWT_SECRET || 'SECRETO_TEMPORAL_DEV_2025'; 
-
 const prisma = new PrismaClient(); 
 
 exports.protect = async (req, res, next) => {
@@ -20,18 +17,15 @@ exports.protect = async (req, res, next) => {
 
     try {
         const decoded = jwt.verify(token, JWT_SECRET);
-
-        // Buscar el usuario en la BD para obtener el objeto completo y verificar que existe
+        // CRÍTICO: Buscar usuario en la DB para establecer un req.user completo
         const freshUser = await prisma.user.findUnique({ where: { id: decoded.id } });
 
         if (!freshUser) {
             return res.status(401).json({ message: 'El usuario asociado al token ya no existe.' });
         }
 
-        // Adjuntar el objeto completo del usuario.
         req.user = freshUser; 
         next();
-
     } catch (error) {
         return res.status(401).json({ message: 'Token inválido o expirado.' });
     }
