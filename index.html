@@ -242,14 +242,13 @@
         </button>
     </div>
 
-</div> <script>
-    // 1. ARREGLO DE RUTA: USAMOS RUTA RELATIVA PARA EVITAR ERRORES CORS
+</div> 
+<script>
     const API_BASE_URL = '/api'; 
     
     let isRegisterMode = false;
     let moodChartInstance = null;
 
-    // Actualiza el valor mostrado en el slider
     document.getElementById('moodScore').addEventListener('input', function() {
         document.getElementById('currentMoodValue').textContent = this.value;
     });
@@ -272,7 +271,6 @@
         checkAuthentication();
     }
 
-    // 2. ARREGLO DE LOGIN: LECTURA CORRECTA DE LA RESPUESTA Y MANEJO DE ERRORES
     async function handleAuth() {
         const email = document.getElementById('authEmail').value;
         const password = document.getElementById('authPassword').value;
@@ -280,17 +278,13 @@
         const lastName = document.getElementById('authLastName').value;
         const role = document.getElementById('authRole').value;
 
-        // Revisión de campos obligatorios
-        if (!email || !password || (isRegisterMode && (!firstName || !lastName))) {
-            displayAuthMessage("Faltan campos obligatorios para Iniciar Sesión o Registrarse.");
+        if (!email || !password) {
+            displayAuthMessage("El email y la contraseña son obligatorios.");
             return;
         }
 
         const endpoint = isRegisterMode ? '/auth/register' : '/auth/login';
         const body = isRegisterMode ? { firstName, lastName, email, password, role } : { email, password };
-
-        // Limpiamos el mensaje de error antes de intentar el login
-        document.getElementById('authMessage').style.display = 'none';
 
         try {
             const response = await fetch(`${API_BASE_URL}${endpoint}`, {
@@ -299,25 +293,20 @@
                 body: JSON.stringify(body)
             });
 
-            // Diagnóstico
-            console.log('Respuesta de Autenticación - Estado:', response.status);
-
             const data = await response.json();
 
             if (response.ok) {
-                // ✅ CORRECCIÓN: Leemos 'data' directamente del body de la respuesta
+                // 🚨 CORRECCIÓN: La respuesta del backend no está anidada.
                 const userData = data; 
                 localStorage.setItem('token', data.token);
-                localStorage.setItem('userRole', userData.role); 
+                localStorage.setItem('userRole', userData.role);
                 localStorage.setItem('userFirstName', userData.firstName);
-                
                 checkAuthentication();
             } else {
-                // Muestra el mensaje de error del servidor (ej: "Credenciales incorrectas")
-                displayAuthMessage(`Error: ${data.message || 'Credenciales inválidas. Verifique el email/contraseña.'}`);
+                displayAuthMessage(`Error: ${data.message || 'Credenciales inválidas.'}`);
             }
         } catch (error) {
-            displayAuthMessage('Fallo en la conexión. Por favor, verifica tu conexión a internet.');
+            displayAuthMessage('Fallo en la conexión. Por favor, asegúrate de que el servidor esté activo.');
             console.error("Error al intentar login/registro:", error);
         }
     }
@@ -331,7 +320,6 @@
 
     // --- LÓGICA DE CHECK-IN Y METAS ---
 
-    // Muestra u oculta el formulario de Check-in
     function toggleCheckinForm() {
         const form = document.getElementById('checkinModal');
         const button = document.querySelector('#dashboardScreen > .btn-primary');
@@ -349,7 +337,6 @@
         const notes = document.getElementById('checkinNotes').value;
         const token = localStorage.getItem('token');
 
-        // Validación: Rango de 1 a 10
         if (!moodScore || parseInt(moodScore) < 1 || parseInt(moodScore) > 10) {
             alert('El puntaje de ánimo debe ser entre 1 y 10.');
             return;
@@ -369,6 +356,7 @@
                 alert('¡Check-in registrado con éxito!');
                 document.getElementById('checkinModal').style.display = 'none'; 
                 document.querySelector('#dashboardScreen > .btn-primary').textContent = 'Registrar Nuevo Check-in';
+
                 loadData();
             } else {
                 const data = await response.json();
@@ -380,7 +368,6 @@
         }
     }
     
-    // Función para renderizar el gráfico (placeholder)
     function renderMoodChart(data) {
         const ctx = document.getElementById('moodChart').getContext('2d');
         if (moodChartInstance) {
@@ -420,7 +407,6 @@
         });
     }
 
-    // 3. ARREGLO DE PANTALLA EN BLANCO: Corrección de sintaxis
     async function renderAssignedGoals(goals) {
         const container = document.getElementById('assignedGoalsContainer');
         const noGoals = document.getElementById('noGoalsMessage');
@@ -433,7 +419,7 @@
 
         noGoals.style.display = 'none';
 
-        // Bloque de código corregido
+        // 🚨 BLOQUE DE CÓDIGO INCOMPLETO CORREGIDO
         container.innerHTML = goals.map(g => `
             <div class="goal-card">
                 <strong>${g.name}</strong>
@@ -441,10 +427,9 @@
                 <span class="goal-metric">Objetivo: ${g.target} ${g.metric || ''}</span>
                 <span class="goal-due-date">Fecha Límite: ${new Date(g.dueDate).toLocaleDateString()}</span>
             </div>
-        `).join('');
+        `).join(''); // El .join('') es crucial para evitar comas
     }
 
-    // Carga inicial de datos (Gráfico y Metas)
     async function loadData() {
         const token = localStorage.getItem('token');
         if (!token) return;
@@ -455,7 +440,7 @@
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 
-            // Endpoint imaginario para los checkins para el gráfico
+            // Cargar Checkins para el gráfico
             const checkinsResponse = await fetch(`${API_BASE_URL}/patient/checkins`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -469,7 +454,6 @@
                 const checkins = await checkinsResponse.json();
                 renderMoodChart(checkins);
             } else {
-                 // Si el endpoint de checkins no existe, renderizamos un gráfico vacío.
                  renderMoodChart([]);
             }
 
@@ -479,7 +463,6 @@
     }
 
 
-    // Inicialización
     function checkAuthentication() {
         const token = localStorage.getItem('token');
         const role = localStorage.getItem('userRole');
