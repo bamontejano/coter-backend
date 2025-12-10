@@ -5,8 +5,7 @@ const { PrismaClient } = require('@prisma/client');
 const JWT_SECRET = process.env.JWT_SECRET; 
 const prisma = new PrismaClient(); 
 
-// Middleware principal para proteger rutas y adjuntar el usuario
-exports.protect = async (req, res, next) => { // 🚨 AHORA ASÍNCRONO
+exports.protect = async (req, res, next) => {
     const authHeader = req.header('Authorization');
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -25,7 +24,6 @@ exports.protect = async (req, res, next) => { // 🚨 AHORA ASÍNCRONO
             return res.status(401).json({ message: 'El usuario asociado al token ya no existe.' });
         }
         
-        // Adjuntar el objeto completo del usuario
         req.user = freshUser; 
         
         next();
@@ -35,9 +33,7 @@ exports.protect = async (req, res, next) => { // 🚨 AHORA ASÍNCRONO
     }
 };
 
-// Middleware para restringir el acceso a un rol específico
 exports.restrictTo = (role) => (req, res, next) => {
-    // Si el usuario no está autenticado o el rol no coincide
     if (!req.user || req.user.role !== role) {
         return res.status(403).json({ message: 'Acceso denegado. Rol no autorizado para esta ruta.' });
     }

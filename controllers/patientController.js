@@ -1,31 +1,23 @@
 // controllers/patientController.js (FINAL Y ESTABLE)
 
-// 🚨 CORRECCIÓN CRÍTICA: Usar la importación estándar y segura de Prisma.
+// 🚨 CRÍTICO: Usar la importación estándar y segura de Prisma.
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient(); 
 
-// 🚨 Función getUserId ELIMINADA: Causaba inestabilidad al inicio del servidor.
+// 🚨 Función getUserId ELIMINADA: Esto era la causa de la inestabilidad.
 
 // ----------------------------------------------------------------------
 // 1. CREAR NUEVO CHECK-IN (POST /api/patient/checkin)
 // ----------------------------------------------------------------------
 
 exports.createCheckin = async (req, res) => {
-    // 🚨 Blindaje de seguridad: Se comprueba que req.user exista
     if (!req.user || !req.user.id) {
-        return res.status(401).json({ message: "Error de autenticación. Por favor, vuelva a iniciar sesión." });
+        return res.status(401).json({ message: "Error de autenticación. Vuelva a iniciar sesión." });
     }
-    
-    // Uso directo y seguro del ID
     const patientId = req.user.id; 
     const { moodScore, notes } = req.body; 
 
-    // El moodScore es obligatorio para registrar un check-in
-    if (!moodScore) {
-        return res.status(400).json({ message: 'El puntaje de ánimo (moodScore) es obligatorio para el check-in.' });
-    }
-
-    if (moodScore < 1 || moodScore > 10) {
+    if (!moodScore || moodScore < 1 || moodScore > 10) {
         return res.status(400).json({ message: 'El puntaje de ánimo debe estar entre 1 y 10.' });
     }
 
@@ -33,7 +25,7 @@ exports.createCheckin = async (req, res) => {
         const newCheckin = await prisma.checkin.create({
             data: {
                 patientId: patientId,
-                moodScore: parseInt(moodScore), // Aseguramos que sea Integer
+                moodScore: parseInt(moodScore),
                 notes: notes || null,
             }
         });
@@ -57,19 +49,16 @@ exports.createCheckin = async (req, res) => {
 // ----------------------------------------------------------------------
 
 exports.getAssignedGoals = async (req, res) => {
-    // 🚨 Blindaje de seguridad
+    // 🚨 Esta función es la que estaba undefined en patientRoutes.js:17:8
     if (!req.user || !req.user.id) {
-         return res.status(401).json({ message: "Error de autenticación. Por favor, vuelva a iniciar sesión." });
+         return res.status(401).json({ message: "Error de autenticación. Vuelva a iniciar sesión." });
     }
     const patientId = req.user.id;
 
     try {
         const goals = await prisma.goal.findMany({
             where: { patientId: patientId },
-            orderBy: [
-                { dueDate: 'asc' }, 
-                { createdAt: 'desc' }
-            ]
+            orderBy: [{ dueDate: 'asc' }, { createdAt: 'desc' }]
         });
 
         res.status(200).json(goals);
