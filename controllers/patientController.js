@@ -1,7 +1,7 @@
-// controllers/patientController.js (VERSION BLINDADA Y FINAL)
+// controllers/patientController.js (VERSION FINAL Y BLINDADA)
 
 // 🚨 CORRECCIÓN CRÍTICA: Usar la importación directa y estándar de Prisma
-const { PrismaClient } = require('@prisma/client');
+const { PrismaClient } = require('@prisma/client'); 
 const prisma = new PrismaClient(); 
 
 // ----------------------------------------------------------------------
@@ -9,9 +9,7 @@ const prisma = new PrismaClient();
 // ----------------------------------------------------------------------
 
 exports.createCheckin = async (req, res) => {
-    if (!req.user || !req.user.id) {
-        return res.status(401).json({ message: "Error de autenticación. Vuelva a iniciar sesión." });
-    }
+    // req.user ya está garantizado por auth.js
     const patientId = req.user.id; 
     const { moodScore, notes } = req.body; 
 
@@ -23,7 +21,7 @@ exports.createCheckin = async (req, res) => {
         const newCheckin = await prisma.checkin.create({
             data: {
                 patientId: patientId,
-                moodScore: parseInt(moodScore),
+                moodScore: parseInt(moodScore), 
                 notes: notes || null,
             }
         });
@@ -34,7 +32,7 @@ exports.createCheckin = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Error al crear check-in (Prisma/DB):", error.message);
+        console.error("Error al crear check-in (DB):", error.message);
         res.status(500).json({ 
             message: 'Error interno al registrar el check-in.',
             details: error.message
@@ -47,10 +45,6 @@ exports.createCheckin = async (req, res) => {
 // ----------------------------------------------------------------------
 
 exports.getAssignedGoals = async (req, res) => {
-    // 🚨 Esta función ahora está garantizada de ser exportada.
-    if (!req.user || !req.user.id) {
-         return res.status(401).json({ message: "Error de autenticación. Vuelva a iniciar sesión." });
-    }
     const patientId = req.user.id;
 
     try {
