@@ -1,4 +1,4 @@
-// middleware/auth.js (VERSIÓN ROBUSTA FINAL)
+// middleware/auth.js (VERSIÓN ROBUSTA FINAL CON PRISMA)
 
 const jwt = require('jsonwebtoken');
 const { PrismaClient } = require('@prisma/client');
@@ -37,6 +37,7 @@ exports.protect = async (req, res, next) => { // 🚨 AHORA ASÍNCRONO
 
 // Middleware para restringir el acceso a un rol específico
 exports.restrictTo = (role) => (req, res, next) => {
+    // Si el usuario no está autenticado o el rol no coincide
     if (!req.user || req.user.role !== role) {
         return res.status(403).json({ message: 'Acceso denegado. Rol no autorizado para esta ruta.' });
     }

@@ -1,19 +1,23 @@
-// controllers/patientController.js (ESTABILIZADO)
+// controllers/patientController.js (FINAL Y ESTABLE)
 
-const prisma = require('../utils/prismaClient'); 
-// 🚨 Función getUserId ELIMINADA para mayor estabilidad
+// 🚨 CORRECCIÓN CRÍTICA: Usar la importación estándar y segura de Prisma.
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient(); 
+
+// 🚨 Función getUserId ELIMINADA: Causaba inestabilidad al inicio del servidor.
 
 // ----------------------------------------------------------------------
 // 1. CREAR NUEVO CHECK-IN (POST /api/patient/checkin)
 // ----------------------------------------------------------------------
 
 exports.createCheckin = async (req, res) => {
-    // 🚨 Blindaje y uso directo de req.user.id
+    // 🚨 Blindaje de seguridad: Se comprueba que req.user exista
     if (!req.user || !req.user.id) {
-         return res.status(401).json({ message: "Error de autenticación. Vuelva a iniciar sesión." });
+        return res.status(401).json({ message: "Error de autenticación. Por favor, vuelva a iniciar sesión." });
     }
-    const patientId = req.user.id;
     
+    // Uso directo y seguro del ID
+    const patientId = req.user.id; 
     const { moodScore, notes } = req.body; 
 
     // El moodScore es obligatorio para registrar un check-in
@@ -21,7 +25,6 @@ exports.createCheckin = async (req, res) => {
         return res.status(400).json({ message: 'El puntaje de ánimo (moodScore) es obligatorio para el check-in.' });
     }
 
-    // RANGO ACTUALIZADO DE 1 A 10
     if (moodScore < 1 || moodScore > 10) {
         return res.status(400).json({ message: 'El puntaje de ánimo debe estar entre 1 y 10.' });
     }
@@ -41,7 +44,7 @@ exports.createCheckin = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Error al crear check-in:", error.message);
+        console.error("Error al crear check-in (Prisma/DB):", error.message);
         res.status(500).json({ 
             message: 'Error interno al registrar el check-in.',
             details: error.message
@@ -54,14 +57,13 @@ exports.createCheckin = async (req, res) => {
 // ----------------------------------------------------------------------
 
 exports.getAssignedGoals = async (req, res) => {
-    // 🚨 Uso directo y blindado de req.user.id
+    // 🚨 Blindaje de seguridad
     if (!req.user || !req.user.id) {
-         return res.status(401).json({ message: "Error de autenticación. Vuelva a iniciar sesión." });
+         return res.status(401).json({ message: "Error de autenticación. Por favor, vuelva a iniciar sesión." });
     }
     const patientId = req.user.id;
 
     try {
-        // Obtenemos todas las metas donde este usuario es el paciente
         const goals = await prisma.goal.findMany({
             where: { patientId: patientId },
             orderBy: [
