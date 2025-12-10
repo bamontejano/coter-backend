@@ -17,7 +17,6 @@ exports.protect = async (req, res, next) => {
     try {
         const decoded = jwt.verify(token, JWT_SECRET);
         
-        // CRÍTICO: Buscar el objeto completo del usuario en la BD
         const freshUser = await prisma.user.findUnique({ where: { id: decoded.id } });
         
         if (!freshUser) {

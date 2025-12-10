@@ -1,9 +1,13 @@
-// routes/patientRoutes.js (FINAL)
+// routes/patientRoutes.js (VERIFICADO)
 
 const express = require('express');
 const router = express.Router();
-const patientController = require('../controllers/patientController');
+const patientController = require('../controllers/patientController'); // LÍNEA 3
 const { protect, restrictTo } = require('../middleware/auth'); 
+
+// ----------------------------------------------------
+// RUTAS DE ACCESO AL PACIENTE (Prefijo: /api/patient)
+// ----------------------------------------------------
 
 router.use(protect, restrictTo('PATIENT'));
 
@@ -11,9 +15,8 @@ router.use(protect, restrictTo('PATIENT'));
 router.post('/checkin', patientController.createCheckin); 
 
 // 2. Obtener todas las metas asignadas al paciente
-router.get('/goals', patientController.getAssignedGoals); 
+router.get('/goals', patientController.getAssignedGoals); // LÍNEA 17
 
-// 3. Obtener historial de Check-ins (para el gráfico)
-router.get('/checkins', patientController.getHistoricalCheckins); 
+// ----------------------------------------------------
 
 module.exports = router;
