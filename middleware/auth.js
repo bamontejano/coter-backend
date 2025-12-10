@@ -1,9 +1,10 @@
 // middleware/auth.js
 
 const jwt = require('jsonwebtoken');
+// 🚨 CRÍTICO: Importar Prisma para buscar al usuario
 const { PrismaClient } = require('@prisma/client');
 
-// 🚨 CORRECCIÓN CRÍTICA: Definir un fallback para el secreto si no está en las variables de entorno.
+// 🚨 CRÍTICO: Definir un fallback para el secreto si no está en las variables de entorno.
 const JWT_SECRET = process.env.JWT_SECRET || 'SECRETO_TEMPORAL_DEV_2025'; 
 
 const prisma = new PrismaClient(); 
@@ -28,7 +29,7 @@ exports.protect = async (req, res, next) => {
         // 2. Verificar el token usando el secreto (JWT_SECRET)
         const decoded = jwt.verify(token, JWT_SECRET);
 
-        // 3. Buscar el usuario en la BD (para asegurar que no ha sido eliminado)
+        // 3. Buscar el usuario en la BD (para asegurar que existe y obtener el objeto completo)
         const freshUser = await prisma.user.findUnique({ where: { id: decoded.id } });
 
         if (!freshUser) {
