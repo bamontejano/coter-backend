@@ -1,16 +1,17 @@
-// controllers/patientController.js (FINALIZADO)
+// controllers/patientController.js (FINAL)
 
 const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient(); // Inicialización de Prisma estándar
+const prisma = new PrismaClient(); 
 
 // ----------------------------------------------------------------------
+// 🚨 NOTA: Se ha eliminado la función getUserId para evitar el TypeError.
+// ----------------------------------------------------------------------
+
 // 1. CREAR NUEVO CHECK-IN (POST /api/patient/checkin)
-// ----------------------------------------------------------------------
-
 exports.createCheckin = async (req, res) => {
-    // 🚨 Seguridad: Comprobar que el usuario esté adjunto (establecido por el middleware 'protect')
+    // Blindaje contra fallos de middleware
     if (!req.user || !req.user.id) {
-        return res.status(401).json({ message: "Error de autenticación. Por favor, vuelva a iniciar sesión." });
+        return res.status(401).json({ message: "Error de autenticación. Vuelva a iniciar sesión." });
     }
 
     const patientId = req.user.id; 
@@ -44,10 +45,7 @@ exports.createCheckin = async (req, res) => {
     }
 };
 
-// ----------------------------------------------------------------------
 // 2. OBTENER METAS ASIGNADAS (GET /api/patient/goals)
-// ----------------------------------------------------------------------
-
 exports.getAssignedGoals = async (req, res) => {
     if (!req.user || !req.user.id) {
          return res.status(401).json({ message: "Error de autenticación." });
@@ -57,12 +55,8 @@ exports.getAssignedGoals = async (req, res) => {
     try {
         const goals = await prisma.goal.findMany({
             where: { patientId: patientId },
-            orderBy: [
-                { dueDate: 'asc' }, 
-                { createdAt: 'desc' }
-            ]
+            orderBy: [{ dueDate: 'asc' }, { createdAt: 'desc' }]
         });
-
         res.status(200).json(goals);
         
     } catch (error) {
@@ -71,11 +65,8 @@ exports.getAssignedGoals = async (req, res) => {
     }
 };
 
-// ----------------------------------------------------------------------
 // 3. OBTENER CHECK-INS HISTÓRICOS (GET /api/patient/checkins)
-// ----------------------------------------------------------------------
-
-exports.getHistoricalCheckins = async (req, res) => { 
+exports.getHistoricalCheckins = async (req, res) => { // ⬅️ ¡CRÍTICO! Esta función faltaba o no se exportaba
     if (!req.user || !req.user.id) {
         return res.status(401).json({ message: "Error de autenticación." });
     }
@@ -86,7 +77,7 @@ exports.getHistoricalCheckins = async (req, res) => {
             where: { patientId: patientId },
             orderBy: { createdAt: 'desc' },
             select: { moodScore: true, createdAt: true },
-            take: 30, // Limitar para el gráfico
+            take: 30,
         });
         res.status(200).json(checkins);
 
