@@ -1,33 +1,36 @@
-// controllers/patientController.js (VERSIÓN FINAL Y BLINDADA)
+// controllers/patientController.js (ESTABILIZADO)
 
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient(); 
+const prisma = require('../utils/prismaClient'); 
+// 🚨 Función getUserId ELIMINADA para mayor estabilidad
 
 // ----------------------------------------------------------------------
 // 1. CREAR NUEVO CHECK-IN (POST /api/patient/checkin)
 // ----------------------------------------------------------------------
 
 exports.createCheckin = async (req, res) => {
-    // Blindaje contra fallos de middleware: Si no hay usuario, es un fallo de autenticación.
+    // 🚨 Blindaje y uso directo de req.user.id
     if (!req.user || !req.user.id) {
-        return res.status(401).json({ message: "Error de autenticación. Vuelva a iniciar sesión." });
+         return res.status(401).json({ message: "Error de autenticación. Vuelva a iniciar sesión." });
     }
-
-    const patientId = req.user.id; 
+    const patientId = req.user.id;
+    
     const { moodScore, notes } = req.body; 
 
-    // Validación
-    if (!moodScore || moodScore < 1 || moodScore > 10) {
-        return res.status(400).json({ message: 'El puntaje de ánimo debe ser un número entre 1 y 10.' });
+    // El moodScore es obligatorio para registrar un check-in
+    if (!moodScore) {
+        return res.status(400).json({ message: 'El puntaje de ánimo (moodScore) es obligatorio para el check-in.' });
+    }
+
+    // RANGO ACTUALIZADO DE 1 A 10
+    if (moodScore < 1 || moodScore > 10) {
+        return res.status(400).json({ message: 'El puntaje de ánimo debe estar entre 1 y 10.' });
     }
 
     try {
         const newCheckin = await prisma.checkin.create({
             data: {
                 patientId: patientId,
-                // 🚨 CORRECCIÓN CRÍTICA 1: Cambiar 'moodScore' a 'mood'
-                // 🚨 CORRECCIÓN CRÍTICA 2: Convertir el valor a String para evitar error de tipo
-                mood: String(moodScore), 
+                moodScore: parseInt(moodScore), // Aseguramos que sea Integer
                 notes: notes || null,
             }
         });
@@ -38,9 +41,9 @@ exports.createCheckin = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Error al crear check-in (Prisma/DB):", error);
+        console.error("Error al crear check-in:", error.message);
         res.status(500).json({ 
-            message: 'Error interno al registrar el check-in. Verifique su base de datos.',
+            message: 'Error interno al registrar el check-in.',
             details: error.message
         });
     }
@@ -51,56 +54,29 @@ exports.createCheckin = async (req, res) => {
 // ----------------------------------------------------------------------
 
 exports.getAssignedGoals = async (req, res) => {
+    // 🚨 Uso directo y blindado de req.user.id
     if (!req.user || !req.user.id) {
-         return res.status(401).json({ message: "Error de autenticación." });
+         return res.status(401).json({ message: "Error de autenticación. Vuelva a iniciar sesión." });
     }
     const patientId = req.user.id;
 
     try {
+        // Obtenemos todas las metas donde este usuario es el paciente
         const goals = await prisma.goal.findMany({
             where: { patientId: patientId },
-            orderBy: [{ dueDate: 'asc' }, { createdAt: 'desc' }]
+            orderBy: [
+                { dueDate: 'asc' }, 
+                { createdAt: 'desc' }
+            ]
         });
+
         res.status(200).json(goals);
         
     } catch (error) {
         console.error("Error al obtener metas del paciente:", error.message);
-        res.status(500).json({ message: 'Error interno al obtener las metas asignadas.' });
-    }
-};
-
-// ----------------------------------------------------------------------
-// 3. OBTENER CHECK-INS HISTÓRICOS (GET /api/patient/checkins) 
-// ----------------------------------------------------------------------
-
-// 🚨 NOTA: Se asume que esta función es necesaria para el gráfico del frontend
-exports.getHistoricalCheckins = async (req, res) => {
-    if (!req.user || !req.user.id) {
-        return res.status(401).json({ message: "Error de autenticación." });
-    }
-    const patientId = req.user.id;
-
-    try {
-        const checkins = await prisma.checkin.findMany({
-            where: { patientId: patientId },
-            orderBy: { createdAt: 'desc' },
-            select: { 
-                // 🚨 CRÍTICO: Usar el campo 'mood' del esquema
-                mood: true, 
-                createdAt: true 
-            },
-            take: 30,
+        res.status(500).json({ 
+            message: 'Error interno al obtener las metas asignadas.',
+            details: error.message
         });
-        // Mapeamos los resultados para que el frontend espere 'moodScore' (si el frontend no se puede cambiar)
-        const formattedCheckins = checkins.map(c => ({
-            moodScore: parseInt(c.mood), // Convertimos la cadena a número para el gráfico
-            createdAt: c.createdAt
-        }));
-        
-        res.status(200).json(formattedCheckins);
-
-    } catch (error) {
-        console.error("Error al obtener check-ins históricos:", error.message);
-        res.status(500).json({ message: 'Error interno al obtener el historial de check-ins.' });
     }
 };

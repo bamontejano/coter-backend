@@ -1,17 +1,10 @@
-// controllers/therapistController.js
+// controllers/therapistController.js (CORREGIDO)
 
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient(); 
 
-// Función helper para generar el token JWT
-const signToken = (id, role) => { 
-    const secret = process.env.JWT_SECRET || 'SECRETO_TEMPORAL_DEV_2025';
-    const expiresIn = process.env.JWT_EXPIRES_IN || '90d';
-    
-    return jwt.sign({ id, role }, secret, { 
-        expiresIn: expiresIn
-    });
-};
+// 🚨 Se eliminó la función signToken ya que no se usaba en este archivo 
+// y causaba una dependencia no importada (jwt).
 
 // =========================================================================
 // 1. ASIGNAR PACIENTE (POST /api/therapist/assign)
@@ -95,6 +88,7 @@ exports.getPatients = async (req, res) => {
         // B. Mapear la lista para obtener solo los datos del paciente
         const patients = relationships.map(rel => rel.patient);
 
+        // NOTA: El frontend debe esperar la estructura de datos que se envía aquí.
         res.status(200).json({ 
             status: 'success', 
             results: patients.length,
@@ -168,10 +162,6 @@ exports.getPatientProfile = async (req, res) => {
 
     } catch (error) {
         console.error("Error al obtener perfil del paciente:", error);
-        if (error instanceof TypeError && error.message.includes('findMany')) {
-            console.error("ERROR CRÍTICO: El modelo Checkin o Goal no existe en tu cliente Prisma. ¿Corriste 'npx prisma generate'?");
-            return res.status(500).json({ message: "Error interno: Faltan modelos de datos (Checkin/Goal) en la base de datos." });
-        }
         res.status(500).json({ message: "Error interno del servidor." });
     }
 };
