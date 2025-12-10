@@ -1,37 +1,29 @@
-// controllers/patientController.js (CORREGIDO)
+// controllers/patientController.js (CORREGIDO DEFINITIVO)
 
-const prisma = require('../utils/prismaClient'); 
-
-// 🚨 CORRECCIÓN CRÍTICA: La función getUserId debe verificar la existencia de req.user
-const getUserId = (req) => {
-    // Si req.user no existe, el middleware protect falló o no se ejecutó.
-    if (!req.user) {
-        console.error("Error: req.user no definido en getUserId.");
-        return null; 
-    }
-    // Si existe, devuelve el ID del usuario.
-    return req.user.id || req.user.userId;
-};
+// Asumo que tienes una forma de importar Prisma, por ejemplo:
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 
 // ----------------------------------------------------------------------
 // 1. CREAR NUEVO CHECK-IN (POST /api/patient/checkin)
 // ----------------------------------------------------------------------
 
 exports.createCheckin = async (req, res) => {
-    const patientId = getUserId(req); // Obtención segura del ID
-    const { moodScore, notes } = req.body; 
-
-    // CRÍTICO: Si el ID es nulo, devolvemos un error 401 que el frontend pueda interpretar
-    if (!patientId) {
-         return res.status(401).json({ message: "No se pudo identificar al paciente. Por favor, vuelva a iniciar sesión." });
+    // 🚨 CRÍTICO: Comprobación de seguridad directa.
+    // Si 'protect' falló, req.user no existe.
+    if (!req.user || !req.user.id) {
+        // Si llegamos aquí, el middleware 'protect' no funcionó correctamente. 
+        // Devolvemos 401/403 para no causar un 500.
+        return res.status(401).json({ message: "Error de autenticación. Por favor, vuelva a iniciar sesión." });
     }
 
-    // El moodScore es obligatorio para registrar un check-in
+    const patientId = req.user.id; // Uso directo y seguro
+    const { moodScore, notes } = req.body; 
+
+    // Validación de datos
     if (!moodScore) {
         return res.status(400).json({ message: 'El puntaje de ánimo (moodScore) es obligatorio para el check-in.' });
     }
-
-    // Validación del rango de 1 a 10
     if (moodScore < 1 || moodScore > 10) {
         return res.status(400).json({ message: 'El puntaje de ánimo debe estar entre 1 y 10.' });
     }
@@ -40,7 +32,7 @@ exports.createCheckin = async (req, res) => {
         const newCheckin = await prisma.checkin.create({
             data: {
                 patientId: patientId,
-                moodScore: parseInt(moodScore), // Aseguramos que sea Integer
+                moodScore: parseInt(moodScore),
                 notes: notes || null,
             }
         });
@@ -51,10 +43,10 @@ exports.createCheckin = async (req, res) => {
         });
 
     } catch (error) {
-        // Este catch maneja errores de la DB (Prisma), no errores de autenticación/middleware.
+        // Este catch maneja errores de la DB (Prisma)
         console.error("Error al crear check-in (Prisma/DB):", error.message);
         res.status(500).json({ 
-            message: 'Error interno al registrar el check-in.',
+            message: 'Error interno al registrar el check-in. Verifique su base de datos.',
             details: error.message
         });
     }
@@ -65,14 +57,13 @@ exports.createCheckin = async (req, res) => {
 // ----------------------------------------------------------------------
 
 exports.getAssignedGoals = async (req, res) => {
-    const patientId = getUserId(req);
-
-    if (!patientId) {
-         return res.status(401).json({ message: "No se pudo identificar al paciente." });
+    // 🚨 Comprobación de seguridad
+    if (!req.user || !req.user.id) {
+         return res.status(401).json({ message: "Error de autenticación." });
     }
+    const patientId = req.user.id;
 
     try {
-        // Obtenemos todas las metas donde este usuario es el paciente
         const goals = await prisma.goal.findMany({
             where: { patientId: patientId },
             orderBy: [
@@ -91,3 +82,6 @@ exports.getAssignedGoals = async (req, res) => {
         });
     }
 };
+// ----------------------------------------------------------------------
+// Otras funciones del patientController (si existen)...
+// ----------------------------------------------------------------------

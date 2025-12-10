@@ -1,10 +1,10 @@
-// middleware/auth.js
+// middleware/auth.js (CORREGIDO DEFINITIVO)
 
 const jwt = require('jsonwebtoken');
 // 🚨 CRÍTICO: Importar Prisma para buscar al usuario
 const { PrismaClient } = require('@prisma/client');
 
-// 🚨 CRÍTICO: Definir un fallback para el secreto si no está en las variables de entorno.
+// 🚨 CRÍTICO: Definir un fallback para el secreto
 const JWT_SECRET = process.env.JWT_SECRET || 'SECRETO_TEMPORAL_DEV_2025'; 
 
 const prisma = new PrismaClient(); 
@@ -14,33 +14,32 @@ const prisma = new PrismaClient();
 // =========================================================================
 
 exports.protect = async (req, res, next) => {
-    // 1. Obtener el token del header (ej: Authorization: Bearer <token>)
     let token;
-    // Se busca en el header 'Authorization' con el formato 'Bearer <token>'
     if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
         token = req.headers.authorization.split(' ')[1];
     }
 
     if (!token) {
-        return res.status(401).json({ message: 'Acceso denegado. No ha iniciado sesión.' });
+        // Detiene la ejecución aquí con 401
+        return res.status(401).json({ message: 'Acceso denegado. No se proporcionó token.' });
     }
 
     try {
-        // 2. Verificar el token usando el secreto (JWT_SECRET)
+        // 1. Verificar el token
         const decoded = jwt.verify(token, JWT_SECRET);
 
-        // 3. Buscar el usuario en la BD (para asegurar que existe y obtener el objeto completo)
+        // 2. Buscar el usuario en la BD (para obtener el objeto completo y asegurar que existe)
         const freshUser = await prisma.user.findUnique({ where: { id: decoded.id } });
 
         if (!freshUser) {
+            // Detiene la ejecución aquí con 401
             return res.status(401).json({ message: 'El usuario asociado al token ya no existe.' });
         }
 
-        // 4. Asignar el usuario (objeto completo de Prisma) al request
-        // Esto garantiza que req.user.id esté disponible para patientController.
+        // 3. Adjuntar el objeto completo del usuario.
         req.user = freshUser; 
         
-        next();
+        next(); // Continúa al patientController
 
     } catch (error) {
         // Maneja errores de JWT (ej. Token inválido o expirado)
@@ -53,7 +52,7 @@ exports.protect = async (req, res, next) => {
 // =========================================================================
 
 exports.restrictTo = (role) => (req, res, next) => {
-    // Si el usuario no está autenticado o el rol no coincide
+    // Si req.user fue establecido por 'protect' pero el rol no coincide
     if (!req.user || req.user.role !== role) {
         return res.status(403).json({ message: 'Acceso denegado. Rol no autorizado para esta ruta.' });
     }
