@@ -1,11 +1,12 @@
-// controllers/authController.js (VERSION FINAL Y VERIFICADA)
+// controllers/authController.js (VERSIÓN FINAL Y BLINDADA)
 
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient(); 
-const bcrypt = require('bcryptjs');
+// 🚨 CRÍTICO: Asegurarse de que estas dependencias existan en package.json
+const bcrypt = require('bcryptjs'); 
 const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'TU_SECRETO_JWT_ULTRA_SEGURO'; 
+const JWT_SECRET = process.env.JWT_SECRET || 'SECRETO_DE_RESPALDO'; 
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '90d';
 
 // Función helper para generar el token JWT
@@ -37,7 +38,6 @@ exports.register = async (req, res) => {
                 email: email.toLowerCase(), 
                 password: hashedPassword,
                 role: finalRole, 
-                // Asumiendo que 'therapistId' es opcional y solo se establece en la asignación.
             },
             select: { id: true, name: true, email: true, role: true }
         });
@@ -69,7 +69,6 @@ exports.login = async (req, res) => {
         return res.status(400).json({ message: 'Por favor, proporcione email y contraseña.' });
     }
     
-    // 🚨 CRÍTICO: Aseguramos la búsqueda en minúsculas
     const lowerCaseEmail = email.toLowerCase();
 
     try {
@@ -77,22 +76,19 @@ exports.login = async (req, res) => {
             where: { email: lowerCaseEmail }
         });
 
-        // 1. Verificar si el usuario existe
         if (!user) {
             return res.status(401).json({ message: 'Credenciales inválidas (usuario no encontrado).' });
         }
         
-        // 2. Verificar la contraseña de forma ASÍNCRONA
+        // 🚨 CRÍTICO: Asegurarse de que bcrypt.compare sea accesible y funcione
         const isPasswordCorrect = await bcrypt.compare(password, user.password);
 
         if (!isPasswordCorrect) {
              return res.status(401).json({ message: 'Credenciales inválidas (contraseña incorrecta).' });
         }
 
-        // 3. Generar y enviar token
         const token = signToken(user.id, user.role);
 
-        // Retornar información del usuario sin la contraseña
         const userResponse = {
             id: user.id,
             name: user.name,
@@ -107,7 +103,8 @@ exports.login = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Error en el inicio de sesión:", error.message);
+        // Si el servidor crashea aquí, es probable que 'bcrypt.compare' haya fallado por alguna razón de entorno.
+        console.error("Error FATAL en el inicio de sesión (DB/Bcrypt):", error.message, error.stack);
         res.status(500).json({ message: 'Error interno del servidor al iniciar sesión.' });
     }
 };

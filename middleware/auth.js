@@ -1,7 +1,7 @@
 // middleware/auth.js (VERSIÓN FINAL Y ROBUSTA)
 
 const jwt = require('jsonwebtoken');
-const { PrismaClient } = require('@prisma/client');
+const { PrismaClient } = require('@prisma/client'); 
 const JWT_SECRET = process.env.JWT_SECRET; 
 const prisma = new PrismaClient(); 
 
@@ -17,7 +17,6 @@ exports.protect = async (req, res, next) => {
     try {
         const decoded = jwt.verify(token, JWT_SECRET);
         
-        // 🚨 CRÍTICO: BUSCAR EL USUARIO COMPLETO EN LA BD. Esto previene el error 500 (Foreign Key).
         const freshUser = await prisma.user.findUnique({ where: { id: decoded.id } });
         
         if (!freshUser) {
