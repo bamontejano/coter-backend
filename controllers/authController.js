@@ -1,11 +1,10 @@
-// controllers/authController.js
+// controllers/authController.js (VERSION FINAL Y VERIFICADA)
 
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient(); 
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
-// 🚨 CRÍTICO: Asegúrate de que JWT_SECRET exista en tus variables de entorno en Render
 const JWT_SECRET = process.env.JWT_SECRET || 'TU_SECRETO_JWT_ULTRA_SEGURO'; 
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '90d';
 
@@ -22,26 +21,23 @@ const signToken = (id, role) => {
 exports.register = async (req, res) => {
     const { name, email, password, role } = req.body;
 
-    // Validación básica de campos
     if (!name || !email || !password) {
         return res.status(400).json({ message: 'Por favor, proporcione nombre, email y contraseña.' });
     }
     
-    // 🚨 CORRECCIÓN CRÍTICA: Validamos el rol y usamos PATIENT por defecto.
     const allowedRoles = ['PATIENT', 'THERAPIST'];
     const finalRole = role && allowedRoles.includes(role.toUpperCase()) ? role.toUpperCase() : 'PATIENT'; 
 
     try {
-        // Encriptar la contraseña
         const hashedPassword = await bcrypt.hash(password, 12);
 
         const newUser = await prisma.user.create({
             data: {
                 name,
-                email: email.toLowerCase(), // 🚨 CRÍTICO: Almacenar email en minúsculas
+                email: email.toLowerCase(), 
                 password: hashedPassword,
                 role: finalRole, 
-                therapistId: finalRole === 'PATIENT' ? undefined : null, // Opcional: solo para pacientes. 'undefined' omite el campo si no es paciente.
+                // Asumiendo que 'therapistId' es opcional y solo se establece en la asignación.
             },
             select: { id: true, name: true, email: true, role: true }
         });
@@ -55,7 +51,6 @@ exports.register = async (req, res) => {
         });
 
     } catch (error) {
-        // Manejar error de email duplicado (código de error de Prisma)
         if (error.code === 'P2002' && error.meta.target.includes('email')) {
             return res.status(400).json({ message: 'Este email ya está en uso.' });
         }
@@ -73,18 +68,28 @@ exports.login = async (req, res) => {
     if (!email || !password) {
         return res.status(400).json({ message: 'Por favor, proporcione email y contraseña.' });
     }
+    
+    // 🚨 CRÍTICO: Aseguramos la búsqueda en minúsculas
+    const lowerCaseEmail = email.toLowerCase();
 
     try {
         const user = await prisma.user.findUnique({
-            where: { email: email.toLowerCase() } // 🚨 CRÍTICO: Buscar email en minúsculas
+            where: { email: lowerCaseEmail }
         });
 
-        // 1. Verificar si el usuario existe y si la contraseña es correcta
-        if (!user || !(await bcrypt.compare(password, user.password))) {
-            return res.status(401).json({ message: 'Credenciales inválidas.' });
+        // 1. Verificar si el usuario existe
+        if (!user) {
+            return res.status(401).json({ message: 'Credenciales inválidas (usuario no encontrado).' });
+        }
+        
+        // 2. Verificar la contraseña de forma ASÍNCRONA
+        const isPasswordCorrect = await bcrypt.compare(password, user.password);
+
+        if (!isPasswordCorrect) {
+             return res.status(401).json({ message: 'Credenciales inválidas (contraseña incorrecta).' });
         }
 
-        // 2. Generar y enviar token
+        // 3. Generar y enviar token
         const token = signToken(user.id, user.role);
 
         // Retornar información del usuario sin la contraseña
