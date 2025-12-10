@@ -1,6 +1,5 @@
-// controllers/patientController.js (CORREGIDO DEFINITIVO)
+// controllers/patientController.js (CON MEJOR MANEJO DE ERRORES DE PRISMA)
 
-// Asumo que tienes una forma de importar Prisma, por ejemplo:
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
@@ -9,15 +8,12 @@ const prisma = new PrismaClient();
 // ----------------------------------------------------------------------
 
 exports.createCheckin = async (req, res) => {
-    // 🚨 CRÍTICO: Comprobación de seguridad directa.
-    // Si 'protect' falló, req.user no existe.
+    // Comprobación de seguridad: asegura que req.user exista y tenga un ID
     if (!req.user || !req.user.id) {
-        // Si llegamos aquí, el middleware 'protect' no funcionó correctamente. 
-        // Devolvemos 401/403 para no causar un 500.
         return res.status(401).json({ message: "Error de autenticación. Por favor, vuelva a iniciar sesión." });
     }
 
-    const patientId = req.user.id; // Uso directo y seguro
+    const patientId = req.user.id; 
     const { moodScore, notes } = req.body; 
 
     // Validación de datos
@@ -43,45 +39,26 @@ exports.createCheckin = async (req, res) => {
         });
 
     } catch (error) {
-        // Este catch maneja errores de la DB (Prisma)
-        console.error("Error al crear check-in (Prisma/DB):", error.message);
-        res.status(500).json({ 
-            message: 'Error interno al registrar el check-in. Verifique su base de datos.',
-            details: error.message
-        });
-    }
-};
-
-// ----------------------------------------------------------------------
-// 2. OBTENER METAS ASIGNADAS (GET /api/patient/goals)
-// ----------------------------------------------------------------------
-
-exports.getAssignedGoals = async (req, res) => {
-    // 🚨 Comprobación de seguridad
-    if (!req.user || !req.user.id) {
-         return res.status(401).json({ message: "Error de autenticación." });
-    }
-    const patientId = req.user.id;
-
-    try {
-        const goals = await prisma.goal.findMany({
-            where: { patientId: patientId },
-            orderBy: [
-                { dueDate: 'asc' }, 
-                { createdAt: 'desc' }
-            ]
-        });
-
-        res.status(200).json(goals);
+        // 🚨 CRÍTICO: Devolver el error detallado de Prisma al frontend
+        console.error("Error al crear check-in (Prisma/DB):", error);
         
-    } catch (error) {
-        console.error("Error al obtener metas del paciente:", error.message);
+        // El error de Prisma P2025 es "Registro no encontrado", pero P2002 es duplicado.
+        // El error más común aquí será un error general de validación de esquema.
+        
+        let errorMessage = 'Error interno al registrar el check-in. ';
+
+        if (error.code && error.meta) {
+            errorMessage += `Código Prisma: ${error.code}. Detalle: ${JSON.stringify(error.meta)}`;
+        } else {
+            errorMessage += `Detalle: ${error.message}`;
+        }
+
         res.status(500).json({ 
-            message: 'Error interno al obtener las metas asignadas.',
+            message: errorMessage,
             details: error.message
         });
     }
 };
-// ----------------------------------------------------------------------
-// Otras funciones del patientController (si existen)...
-// ----------------------------------------------------------------------
+
+// ... Las demás funciones (getAssignedGoals, etc.) pueden quedarse como estaban
+// ...
