@@ -1,20 +1,20 @@
-// controllers/patientController.js (FINAL)
+// controllers/patientController.js (VERSIÓN BLINDADA Y FINAL)
 
+// Importación necesaria para el funcionamiento de Prisma
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient(); 
 
 // ----------------------------------------------------------------------
-// 🚨 NOTA: Se ha eliminado la función getUserId para evitar el TypeError.
+// 1. CREAR NUEVO CHECK-IN (POST /api/patient/checkin)
 // ----------------------------------------------------------------------
 
-// 1. CREAR NUEVO CHECK-IN (POST /api/patient/checkin)
 exports.createCheckin = async (req, res) => {
-    // Blindaje contra fallos de middleware
+    // 🚨 Blindaje contra fallos de middleware: Si no hay usuario, es un fallo de autenticación.
     if (!req.user || !req.user.id) {
         return res.status(401).json({ message: "Error de autenticación. Vuelva a iniciar sesión." });
     }
 
-    const patientId = req.user.id; 
+    const patientId = req.user.id; // Uso directo y seguro
     const { moodScore, notes } = req.body; 
 
     // Validación
@@ -25,7 +25,8 @@ exports.createCheckin = async (req, res) => {
     try {
         const newCheckin = await prisma.checkin.create({
             data: {
-                patientId: patientId,
+                // Aquí usamos el ID obtenido de forma segura
+                patientId: patientId, 
                 moodScore: parseInt(moodScore),
                 notes: notes || null,
             }
@@ -37,15 +38,28 @@ exports.createCheckin = async (req, res) => {
         });
 
     } catch (error) {
+        // 🚨 Manejo de error específico de Prisma/BD
         console.error("Error al crear check-in (Prisma/DB):", error);
+
+        // Si es un error de BD, devolvemos un 500 con el mensaje detallado (si está disponible)
+        let errorMessage = 'Error interno al registrar el check-in. Verifique su base de datos.';
+        if (error.code && error.meta) {
+            errorMessage += ` Código Prisma: ${error.code}. Detalle: ${JSON.stringify(error.meta)}`;
+        } else if (error.message) {
+             // A veces el detalle es solo el mensaje de error general
+            errorMessage += ` Detalle: ${error.message}`;
+        }
+
         res.status(500).json({ 
-            message: 'Error interno al registrar el check-in. Verifique su base de datos.',
-            details: error.message
+            message: errorMessage
         });
     }
 };
 
+// ----------------------------------------------------------------------
 // 2. OBTENER METAS ASIGNADAS (GET /api/patient/goals)
+// ----------------------------------------------------------------------
+
 exports.getAssignedGoals = async (req, res) => {
     if (!req.user || !req.user.id) {
          return res.status(401).json({ message: "Error de autenticación." });
@@ -65,8 +79,11 @@ exports.getAssignedGoals = async (req, res) => {
     }
 };
 
+// ----------------------------------------------------------------------
 // 3. OBTENER CHECK-INS HISTÓRICOS (GET /api/patient/checkins)
-exports.getHistoricalCheckins = async (req, res) => { // ⬅️ ¡CRÍTICO! Esta función faltaba o no se exportaba
+// ----------------------------------------------------------------------
+
+exports.getHistoricalCheckins = async (req, res) => {
     if (!req.user || !req.user.id) {
         return res.status(401).json({ message: "Error de autenticación." });
     }
