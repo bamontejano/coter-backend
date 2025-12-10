@@ -1,10 +1,11 @@
-// controllers/patientController.js (VERSION BLINDADA)
+// controllers/patientController.js (VERSION BLINDADA Y FINAL)
 
-// 🚨 CORRECCIÓN CRÍTICA: Usar la importación estándar para evitar fallos de carga.
+// 🚨 CORRECCIÓN CRÍTICA: Importación directa y estándar de Prisma
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient(); 
 
-// 🚨 Función getUserId ELIMINADA.
+// 🚨 Función getUserId ELIMINADA. Los controladores ahora usan req.user.id
+// para mayor estabilidad.
 
 // ----------------------------------------------------------------------
 // 1. CREAR NUEVO CHECK-IN (POST /api/patient/checkin)
@@ -49,7 +50,7 @@ exports.createCheckin = async (req, res) => {
 // ----------------------------------------------------------------------
 
 exports.getAssignedGoals = async (req, res) => {
-    // 🚨 ESTA FUNCIÓN SE EXPORTARÁ CORRECTAMENTE AHORA.
+    // 🚨 ESTA ES LA FUNCIÓN QUE SE ESTABA PERDIENDO.
     if (!req.user || !req.user.id) {
          return res.status(401).json({ message: "Error de autenticación. Vuelva a iniciar sesión." });
     }
