@@ -1,19 +1,18 @@
-// controllers/patientController.js (VERSIÓN FINAL Y ESTABLE)
+// controllers/patientController.js (VERSION BLINDADA)
 
-// 🚨 CORRECCIÓN CRÍTICA: Usar la importación estándar y segura de Prisma.
+// 🚨 CORRECCIÓN CRÍTICA: Usar la importación estándar para evitar fallos de carga.
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient(); 
 
-// 🚨 La función getUserId ha sido ELIMINADA para garantizar la estabilidad.
+// 🚨 Función getUserId ELIMINADA.
 
 // ----------------------------------------------------------------------
 // 1. CREAR NUEVO CHECK-IN (POST /api/patient/checkin)
 // ----------------------------------------------------------------------
 
 exports.createCheckin = async (req, res) => {
-    // Uso directo y blindado de req.user.id
     if (!req.user || !req.user.id) {
-        return res.status(401).json({ message: "Error de autenticación. Por favor, vuelva a iniciar sesión." });
+        return res.status(401).json({ message: "Error de autenticación. Vuelva a iniciar sesión." });
     }
     const patientId = req.user.id; 
     const { moodScore, notes } = req.body; 
@@ -50,7 +49,7 @@ exports.createCheckin = async (req, res) => {
 // ----------------------------------------------------------------------
 
 exports.getAssignedGoals = async (req, res) => {
-    // 🚨 ESTA ES LA FUNCIÓN CRÍTICA QUE DEBE SER EXPORTADA CORRECTAMENTE
+    // 🚨 ESTA FUNCIÓN SE EXPORTARÁ CORRECTAMENTE AHORA.
     if (!req.user || !req.user.id) {
          return res.status(401).json({ message: "Error de autenticación. Vuelva a iniciar sesión." });
     }

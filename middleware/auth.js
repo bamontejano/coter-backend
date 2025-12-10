@@ -7,13 +7,17 @@ const prisma = new PrismaClient();
 
 exports.protect = async (req, res, next) => {
     const authHeader = req.header('Authorization');
-    
-    // ... lógica de extracción de token ...
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ message: 'Acceso denegado. No se proporcionó token.' });
+    }
+
+    const token = authHeader.replace('Bearer ', '');
 
     try {
         const decoded = jwt.verify(token, JWT_SECRET);
         
-        // CRÍTICO: Buscar usuario en la BD para establecer un req.user completo
+        // CRÍTICO: Buscar el objeto completo del usuario en la BD
         const freshUser = await prisma.user.findUnique({ where: { id: decoded.id } });
         
         if (!freshUser) {
