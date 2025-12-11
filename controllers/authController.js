@@ -86,7 +86,7 @@ exports.login = async (req, res) => {
             role: user.role
         };
 
-        res.status(200).json({
+        return res.status(200).json({
             status: 'success',
             token,
             user: userResponse
@@ -95,7 +95,7 @@ exports.login = async (req, res) => {
     } catch (error) {
         // 🚨 CRÍTICO: Capturamos cualquier error fatal aquí y devolvemos 500, no 502.
         console.error("Error FATAL en el inicio de sesión (DB/Bcrypt):", error.message, error.stack);
-        res.status(500).json({ 
+        return res.status(500).json({ 
             message: 'Error interno del servidor al iniciar sesión. (Verifique logs de dependencias)',
             details: error.message // Devolvemos el detalle del error para debugging
         });
