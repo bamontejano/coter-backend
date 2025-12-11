@@ -1,11 +1,11 @@
-// controllers/authController.js (BLINDAJE FINAL CONTRA CRASH 502)
+// controllers/authController.js (VERSION FINAL - BLINDADA CONTRA ERRORES 500)
 
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient(); 
-const bcrypt = require('bcrypt'); 
+const bcrypt = require('bcrypt'); // Usamos 'bcrypt' ya que resolvimos la dependencia
 const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'SECRETO_DE_RESPALDO'; 
+const JWT_SECRET = process.env.JWT_SECRET || 'TU_SECRETO_JWT_ULTRA_SEGURO'; 
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '90d';
 
 const signToken = (id, role) => { 
@@ -14,14 +14,18 @@ const signToken = (id, role) => {
     });
 };
 
-// ... (Incluye la función exports.register aquí, sin cambios)
+// =========================================================================
+// 1. REGISTRO (POST /api/auth/register)
+// =========================================================================
 exports.register = async (req, res) => {
-    // ... (código de registro previamente corregido)
     const { name, email, password, role } = req.body;
+
     if (!name || !email || !password) {
         return res.status(400).json({ message: 'Por favor, proporcione nombre, email y contraseña.' });
     }
+    
     const allowedRoles = ['PATIENT', 'THERAPIST'];
+    // Aseguramos que el rol sea válido o por defecto PATIENT
     const finalRole = role && allowedRoles.includes(role.toUpperCase()) ? role.toUpperCase() : 'PATIENT'; 
 
     try {
@@ -33,71 +37,41 @@ exports.register = async (req, res) => {
                 email: email.toLowerCase(), 
                 password: hashedPassword,
                 role: finalRole, 
+                // 🚨 CRÍTICO: No incluimos 'therapistId' aquí. Si tu esquema de Prisma lo requiere,
+                // la falla está en el esquema (debe ser nullable: therapistId String?).
             },
             select: { id: true, name: true, email: true, role: true }
         });
+
         const token = signToken(newUser.id, newUser.role);
-        res.status(201).json({ status: 'success', token, user: newUser });
+
+        res.status(201).json({ 
+            status: 'success', 
+            token,
+            user: newUser 
+        });
+
     } catch (error) {
+        // Manejo de error de email duplicado (P2002)
         if (error.code === 'P2002' && error.meta.target.includes('email')) {
             return res.status(400).json({ message: 'Este email ya está en uso.' });
         }
-        console.error("Error en el registro:", error.message);
+        
+        // Manejo de errores de Prisma (P1000 - P2000)
+        if (error.code && error.code.startsWith('P')) {
+            console.error(`Error de Prisma (${error.code}) en registro:`, error.message);
+            // Retornamos un 500 con el detalle del error de la DB
+            return res.status(500).json({ 
+                message: 'Error interno del servidor al registrar. (Posible error de esquema/BD)',
+                details: error.message
+            });
+        }
+
+        console.error("Error desconocido en el registro:", error.message, error.stack);
+        // Retornamos un 500 genérico si no es un error de Prisma
         res.status(500).json({ message: 'Error interno del servidor al registrar.' });
     }
 };
 
-
-// =========================================================================
-// 2. INICIO DE SESIÓN (POST /api/auth/login)
-// =========================================================================
-exports.login = async (req, res) => {
-    const { email, password } = req.body;
-
-    if (!email || !password) {
-        return res.status(400).json({ message: 'Por favor, proporcione email y contraseña.' });
-    }
-    
-    const lowerCaseEmail = email.toLowerCase();
-
-    try {
-        const user = await prisma.user.findUnique({
-            where: { email: lowerCaseEmail }
-        });
-
-        if (!user) {
-            return res.status(401).json({ message: 'Credenciales inválidas (usuario no encontrado).' });
-        }
-        
-        // 🚨 CRÍTICO: Compara la contraseña.
-        // Si el servidor crashea aquí, la razón es una falla en bcrypt o que user.password es NULL.
-        const isPasswordCorrect = await bcrypt.compare(password, user.password || ''); // <-- Protegemos contra password = null
-
-        if (!isPasswordCorrect) {
-             return res.status(401).json({ message: 'Credenciales inválidas (contraseña incorrecta).' });
-        }
-
-        const token = signToken(user.id, user.role);
-
-        const userResponse = {
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            role: user.role
-        };
-
-        return res.status(200).json({
-            status: 'success',
-            token,
-            user: userResponse
-        });
-
-    } catch (error) {
-        // 🚨 CRÍTICO: Capturamos cualquier error fatal aquí y devolvemos 500, no 502.
-        console.error("Error FATAL en el inicio de sesión (DB/Bcrypt):", error.message, error.stack);
-        return res.status(500).json({ 
-            message: 'Error interno del servidor al iniciar sesión. (Verifique logs de dependencias)',
-            details: error.message // Devolvemos el detalle del error para debugging
-        });
-    }
-};
+// ... (El resto de la función exports.login)
+// exports.login = async (req, res) => { ... }
