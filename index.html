@@ -278,13 +278,18 @@
         const lastName = document.getElementById('authLastName').value;
         const role = document.getElementById('authRole').value;
 
-        if (!email || !password) {
-            displayAuthMessage("El email y la contraseña son obligatorios.");
+        // 🚨 CORRECCIÓN 1: Combina firstName y lastName en el campo 'name' que espera el backend.
+        const name = `${firstName} ${lastName}`.trim(); 
+
+        if (!email || !password || (isRegisterMode && name.length === 0)) {
+            displayAuthMessage("El nombre, email y la contraseña son obligatorios.");
             return;
         }
 
         const endpoint = isRegisterMode ? '/auth/register' : '/auth/login';
-        const body = isRegisterMode ? { firstName, lastName, email, password, role } : { email, password };
+        
+        // 🚨 CORRECCIÓN 2: Enviamos 'name' en lugar de 'firstName' y 'lastName'.
+        const body = isRegisterMode ? { name, email, password, role } : { email, password };
 
         try {
             const response = await fetch(`${API_BASE_URL}${endpoint}`, {
@@ -296,11 +301,12 @@
             const data = await response.json();
 
             if (response.ok) {
-                // 🚨 CORRECCIÓN: La respuesta del backend no está anidada.
                 const userData = data; 
                 localStorage.setItem('token', data.token);
-                localStorage.setItem('userRole', userData.role);
-                localStorage.setItem('userFirstName', userData.firstName);
+                localStorage.setItem('userRole', userData.user.role);
+                
+                // 🚨 CORRECCIÓN 3: Almacenamos el nombre completo devuelto por el servidor.
+                localStorage.setItem('userFirstName', userData.user.name); 
                 checkAuthentication();
             } else {
                 displayAuthMessage(`Error: ${data.message || 'Credenciales inválidas.'}`);
@@ -374,6 +380,7 @@
             moodChartInstance.destroy();
         }
 
+        // Asumiendo que los datos de checkin vienen con un campo 'createdAt' y 'moodScore'
         const labels = data.map(item => new Date(item.createdAt).toLocaleDateString());
         const scores = data.map(item => item.moodScore);
 
@@ -419,15 +426,15 @@
 
         noGoals.style.display = 'none';
 
-        // 🚨 BLOQUE DE CÓDIGO INCOMPLETO CORREGIDO
+        // 🚨 BLOQUE DE CÓDIGO CORREGIDO PARA USAR LOS CAMPOS DEL BACKEND
         container.innerHTML = goals.map(g => `
             <div class="goal-card">
-                <strong>${g.name}</strong>
+                <strong>${g.title}</strong>
                 <p style="margin: 5px 0 10px 0; font-size: 0.9em;">${g.description}</p>
                 <span class="goal-metric">Objetivo: ${g.target} ${g.metric || ''}</span>
                 <span class="goal-due-date">Fecha Límite: ${new Date(g.dueDate).toLocaleDateString()}</span>
             </div>
-        `).join(''); // El .join('') es crucial para evitar comas
+        `).join(''); 
     }
 
     async function loadData() {
@@ -446,11 +453,13 @@
             });
             
             if (goalsResponse.ok) {
+                // Las metas se envían como un array directo.
                 const goals = await goalsResponse.json();
                 renderAssignedGoals(goals);
             }
 
             if (checkinsResponse.ok) {
+                // Los checkins se envían como un array directo.
                 const checkins = await checkinsResponse.json();
                 renderMoodChart(checkins);
             } else {
@@ -477,6 +486,7 @@
                 document.getElementById('patientHeaderGreeting').textContent = `Hola, ${firstName || 'Paciente'}!`;
                 loadData(); 
             } else if (role === 'THERAPIST') {
+                // Asumiendo que tendrás un archivo therapist.html
                 window.location.href = 'therapist.html'; 
             } else {
                  logoutUser();

@@ -1,19 +1,26 @@
-// controllers/patientController.js (VERSION FINAL Y BLINDADA)
+// controllers/patientController.js
 
-// 🚨 CORRECCIÓN CRÍTICA: Usar la importación directa y estándar de Prisma
-const { PrismaClient } = require('@prisma/client'); 
+const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient(); 
+// 🚨 LÍNEA ELIMINADA: Ya no necesitamos la función getUserId, ya que req.user.id está disponible.
+// const getUserId = (req) => req.user.id || req.user.userId;
 
 // ----------------------------------------------------------------------
 // 1. CREAR NUEVO CHECK-IN (POST /api/patient/checkin)
 // ----------------------------------------------------------------------
 
 exports.createCheckin = async (req, res) => {
-    // req.user ya está garantizado por auth.js
+    // 🚨 CORRECCIÓN: Usamos req.user.id directamente.
     const patientId = req.user.id; 
     const { moodScore, notes } = req.body; 
 
-    if (!moodScore || moodScore < 1 || moodScore > 10) {
+    // El moodScore es obligatorio para registrar un check-in
+    if (!moodScore) {
+        return res.status(400).json({ message: 'El puntaje de ánimo (moodScore) es obligatorio para el check-in.' });
+    }
+
+    // Rango de 1 a 10
+    if (moodScore < 1 || moodScore > 10) {
         return res.status(400).json({ message: 'El puntaje de ánimo debe estar entre 1 y 10.' });
     }
 
@@ -21,7 +28,7 @@ exports.createCheckin = async (req, res) => {
         const newCheckin = await prisma.checkin.create({
             data: {
                 patientId: patientId,
-                moodScore: parseInt(moodScore), 
+                moodScore: parseInt(moodScore), // Aseguramos que sea Integer
                 notes: notes || null,
             }
         });
@@ -32,7 +39,7 @@ exports.createCheckin = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Error al crear check-in (DB):", error.message);
+        console.error("Error al crear check-in:", error.message);
         res.status(500).json({ 
             message: 'Error interno al registrar el check-in.',
             details: error.message
@@ -45,12 +52,18 @@ exports.createCheckin = async (req, res) => {
 // ----------------------------------------------------------------------
 
 exports.getAssignedGoals = async (req, res) => {
+    // 🚨 CORRECCIÓN: Usamos req.user.id directamente.
     const patientId = req.user.id;
 
     try {
+        // Obtenemos todas las metas donde este usuario es el paciente
         const goals = await prisma.goal.findMany({
             where: { patientId: patientId },
-            orderBy: [{ dueDate: 'asc' }, { createdAt: 'desc' }]
+            // Mantenemos la lógica de ordenación que ya probamos
+            orderBy: [
+                { dueDate: 'asc' }, 
+                { createdAt: 'desc' }
+            ]
         });
 
         res.status(200).json(goals);
