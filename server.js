@@ -17,6 +17,8 @@ const PORT = process.env.PORT || 10000;
 
 // Inicializar la aplicación Express
 const app = express();
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // ------------------------------
 // MIDDLEWARE GLOBAL
