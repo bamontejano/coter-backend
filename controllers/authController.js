@@ -1,14 +1,13 @@
-// controllers/authController.js (VERSIÓN FINAL Y SIN ERRORES DE SINTAXIS)
+// controllers/authController.js (VERSION FINAL Y SINCRONIZADA CON SCHEMA.PRISMA)
 
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient(); 
-const bcrypt = require('bcrypt'); // Usamos 'bcrypt' ya que resolvimos la dependencia
+const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'TU_SECRETO_JWT_ULTRA_SEGURO'; 
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '90d';
 
-// Función helper para generar el token JWT
 const signToken = (id, role) => { 
     return jwt.sign({ id, role }, JWT_SECRET, { 
         expiresIn: JWT_EXPIRES_IN
@@ -19,9 +18,11 @@ const signToken = (id, role) => {
 // 1. REGISTRO (POST /api/auth/register)
 // =========================================================================
 exports.register = async (req, res) => {
-    const { name, email, password, role } = req.body;
+    // 🚨 CORRECCIÓN: Extraemos firstName y lastName para que coincidan con index.html
+    const { firstName, lastName, email, password, role } = req.body; 
 
-    if (!name || !email || !password) {
+    // Usamos firstName como validación, ya que el esquema lo requiere.
+    if (!firstName || !email || !password) {
         return res.status(400).json({ message: 'Por favor, proporcione nombre, email y contraseña.' });
     }
     
@@ -33,29 +34,35 @@ exports.register = async (req, res) => {
 
         const newUser = await prisma.user.create({
             data: {
-                name,
+                // 🚨 CRÍTICO: Solo pasamos firstName, ya que el esquema no tiene 'name' ni 'lastName'.
+                firstName: firstName, 
                 email: email.toLowerCase(), 
                 password: hashedPassword,
                 role: finalRole, 
             },
-            select: { id: true, name: true, email: true, role: true }
+            select: { id: true, firstName: true, email: true, role: true } // Devolvemos firstName
         });
 
         const token = signToken(newUser.id, newUser.role);
 
+        // 🚨 CORRECCIÓN: Devolvemos el objeto user limpio
         return res.status(201).json({ 
             status: 'success', 
             token,
-            user: newUser 
+            user: {
+                id: newUser.id,
+                name: newUser.firstName, // Usamos firstName como el 'name' de la respuesta para el frontend
+                email: newUser.email,
+                role: newUser.role
+            }
         });
 
     } catch (error) {
-        // Manejo de error de email duplicado (P2002)
         if (error.code === 'P2002' && error.meta.target.includes('email')) {
             return res.status(400).json({ message: 'Este email ya está en uso.' });
         }
         
-        // Manejo de errores de Prisma (P1000 - P2000)
+        // Muestra el error de base de datos específico (Pxxxx)
         if (error.code && error.code.startsWith('P')) {
             console.error(`Error de Prisma (${error.code}) en registro:`, error.message);
             return res.status(500).json({ 
@@ -87,35 +94,34 @@ exports.login = async (req, res) => {
         });
 
         if (!user) {
-            return res.status(401).json({ message: 'Credenciales inválidas (usuario no encontrado).' });
+            return res.status(401).json({ message: 'Credenciales inválidas.' });
         }
         
-        // Protegemos contra user.password = null
         const isPasswordCorrect = await bcrypt.compare(password, user.password || ''); 
 
         if (!isPasswordCorrect) {
-             return res.status(401).json({ message: 'Credenciales inválidas (contraseña incorrecta).' });
+             return res.status(401).json({ message: 'Credenciales inválidas.' });
         }
 
         const token = signToken(user.id, user.role);
 
         const userResponse = {
             id: user.id,
-            name: user.name,
+            name: user.firstName, // Usamos firstName como el 'name' de la respuesta para el frontend
             email: user.email,
             role: user.role
         };
 
-        return res.status(200).json({ // Aseguramos el 'return'
+        return res.status(200).json({
             status: 'success',
             token,
             user: userResponse
         });
 
     } catch (error) {
-        console.error("Error FATAL en el inicio de sesión (DB/Bcrypt):", error.message, error.stack);
-        return res.status(500).json({ // Aseguramos el 'return'
-            message: 'Error interno del servidor al iniciar sesión. (Verifique logs de dependencias)',
+        console.error("Error FATAL en el inicio de sesión:", error.message, error.stack);
+        return res.status(500).json({
+            message: 'Error interno del servidor al iniciar sesión.',
             details: error.message
         });
     }
